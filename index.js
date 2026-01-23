@@ -52,7 +52,7 @@ client.on('interactionCreate', async interaction => {
       .setTitle('👋 Welcome!')
       .setDescription('Welcome to the server! We’re happy to have you here 😄')
       .setColor(0xFF9900)
-      .setFooter({ text: 'Your Brand Name' });
+      .setFooter({ text: 'Destiny Church' });
 
     await interaction.reply({ embeds: [embed] });
   }
