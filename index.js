@@ -1,12 +1,7 @@
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 // 1️⃣ Create bot client
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers // needed for auto welcome
-  ]
-});
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // 2️⃣ Config from Railway secrets
 const token = process.env.TOKEN;
@@ -23,9 +18,8 @@ const commands = [
     .setDescription('Sends a branded welcome message')
 ].map(cmd => cmd.toJSON());
 
-// 4️⃣ Register slash commands
+// 4️⃣ Register commands with Discord
 const rest = new REST({ version: '10' }).setToken(token);
-
 (async () => {
   try {
     console.log('Registering slash commands...');
@@ -48,39 +42,73 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'welcome') {
-    const embed = new EmbedBuilder()
-      .setTitle('👋 Welcome!')
-      .setDescription('Welcome to the server! We’re happy to have you here 😄')
-      .setColor(0xFF9900)
-      .setFooter({ text: 'Destiny Church' });
-
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({
+      embeds: [{
+        title: '👋 Welcome!',
+        description: 'Welcome to the server! We’re happy to have you here 😄',
+        color: 0xFF9900,
+        footer: { text: 'Your Brand Name' }
+      }]
+    });
   }
 });
 
-// 6️⃣ Automatic welcome messages
-client.on('guildMemberAdd', async (member) => {
-  try {
-    // Change 'general' to your welcome channel name
-    const channel = member.guild.channels.cache.find(
-      ch => ch.name === 'general-chat' && ch.isTextBased()
-    );
-
-    if (!channel) return;
-
-    const embed = new EmbedBuilder()
-      .setTitle(`👋 Welcome, ${member.user.username}!`)
-      .setDescription('We’re so happy you joined the server! 😄')
-      .setColor(0xFF9900)
-      .setFooter({ text: 'Destiny Church' })
-      .setThumbnail(member.user.displayAvatarURL({ dynamic: true }));
-
-    await channel.send({ embeds: [embed] });
-  } catch (err) {
-    console.error('Error sending welcome message:', err);
-  }
-});
-
-// 7️⃣ Log bot in
+// 6️⃣ Log bot in
 client.once('ready', () => console.log(`Logged in as ${client.user.tag}`));
 client.login(token);
+
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+client.once('ready', async () => {
+  console.log(`Logged in as ${client.user.tag}`);
+
+  // Change 'roles' to the channel where you want the buttons
+  const channel = client.channels.cache.find(
+    ch => ch.name === 'admin-chat' && ch.isTextBased()
+  );
+  if (!channel) return;
+
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('role_Man')
+        .setLabel('Man')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('role_artist')
+        .setLabel('Artist')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  await channel.send({
+    content: 'Click a button to get your role!',
+    components: [row]
+  });
+});
+
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isButton()) return;
+
+  let roleName;
+  if (interaction.customId === 'role_gamer') roleName = 'Gamer';
+  if (interaction.customId === 'role_artist') roleName = 'Artist';
+
+  if (!roleName) return;
+
+  const role = interaction.guild.roles.cache.find(r => r.name === roleName);
+  if (!role) return interaction.reply({ content: 'Role not found!', ephemeral: true });
+
+  try {
+    if (interaction.member.roles.cache.has(role.id)) {
+      await interaction.member.roles.remove(role);
+      return interaction.reply({ content: `Removed your **${roleName}** role!`, ephemeral: true });
+    } else {
+      await interaction.member.roles.add(role);
+      return interaction.reply({ content: `Added **${roleName}** role!`, ephemeral: true });
+    }
+  } catch (err) {
+    console.error(err);
+    return interaction.reply({ content: `I can't assign that role. Make sure I have permission!`, ephemeral: true });
+  }
+});
+
