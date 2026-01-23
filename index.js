@@ -71,8 +71,8 @@ client.once('ready', async () => {
   const row = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('role_Man')
-        .setLabel('Man')
+        .setCustomId('role_Men's Group')
+        .setLabel('♂️ Man')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('role_artist')
