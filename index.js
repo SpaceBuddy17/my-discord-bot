@@ -1,7 +1,12 @@
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 // 1️⃣ Create bot client
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers // needed for auto welcome
+  ]
+});
 
 // 2️⃣ Config from Railway secrets
 const token = process.env.TOKEN;
@@ -18,8 +23,9 @@ const commands = [
     .setDescription('Sends a branded welcome message')
 ].map(cmd => cmd.toJSON());
 
-// 4️⃣ Register commands with Discord
+// 4️⃣ Register slash commands
 const rest = new REST({ version: '10' }).setToken(token);
+
 (async () => {
   try {
     console.log('Registering slash commands...');
@@ -42,17 +48,39 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'welcome') {
-    await interaction.reply({
-      embeds: [{
-        title: '👋 Welcome!',
-        description: 'Welcome to the server! We’re happy to have you here 😄',
-        color: 0xFF9900,
-        footer: { text: 'Your Brand Name' }
-      }]
-    });
+    const embed = new EmbedBuilder()
+      .setTitle('👋 Welcome!')
+      .setDescription('Welcome to the server! We’re happy to have you here 😄')
+      .setColor(0xFF9900)
+      .setFooter({ text: 'Your Brand Name' });
+
+    await interaction.reply({ embeds: [embed] });
   }
 });
 
-// 6️⃣ Log bot in
+// 6️⃣ Automatic welcome messages
+client.on('guildMemberAdd', async (member) => {
+  try {
+    // Change 'general' to your welcome channel name
+    const channel = member.guild.channels.cache.find(
+      ch => ch.name === 'general-chat' && ch.isTextBased()
+    );
+
+    if (!channel) return;
+
+    const embed = new EmbedBuilder()
+      .setTitle(`👋 Welcome, ${member.user.username}!`)
+      .setDescription('We’re so happy you joined the server! 😄')
+      .setColor(0xFF9900)
+      .setFooter({ text: 'Destiny Church' })
+      .setThumbnail(member.user.displayAvatarURL({ dynamic: true }));
+
+    await channel.send({ embeds: [embed] });
+  } catch (err) {
+    console.error('Error sending welcome message:', err);
+  }
+});
+
+// 7️⃣ Log bot in
 client.once('ready', () => console.log(`Logged in as ${client.user.tag}`));
 client.login(token);
