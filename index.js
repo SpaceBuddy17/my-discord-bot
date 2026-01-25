@@ -57,88 +57,58 @@ client.on('interactionCreate', async interaction => {
 client.once('ready', () => console.log(`Logged in as ${client.user.tag}`));
 client.login(token);
 
+require('dotenv').config();
 const {
+  Client,
+  GatewayIntentBits,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder
 } = require('discord.js');
 
-const sendRoleEmbeds = async (channel) => {
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers
+  ]
+});
 
-  // ===== MAN / WOMAN =====
-  const genderEmbed = new EmbedBuilder()
-    .setTitle('👤 Man or Woman')
-    .setDescription('Choose one')
-    .setColor(0x5865F2);
+/* ===================== ROLE CONFIG ===================== */
 
-  const genderRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('role_man').setLabel('Man').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('role_woman').setLabel('Woman').setStyle(ButtonStyle.Primary)
-  );
+const roleMap = {
+  // Gender
+  role_man: 'Man',
+  role_woman: 'Woman',
 
-  // ===== NAME COLORS =====
-  const colorsEmbed = new EmbedBuilder()
-    .setTitle('🎨 Name Color')
-    .setDescription('Pick **one** color')
-    .setColor(0xEB459E);
+  // Colors
+  color_red: 'Red',
+  color_orange: 'Orange',
+  color_yellow: 'Yellow',
+  color_green: 'Green',
+  color_blue: 'Blue',
+  color_purple: 'Purple',
+  color_pink: 'Pink',
+  color_brown: 'Brown',
 
-  const colorRow1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('color_red').setLabel('Red').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('color_orange').setLabel('Orange').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('color_yellow').setLabel('Yellow').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('color_green').setLabel('Green').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('color_blue').setLabel('Blue').setStyle(ButtonStyle.Primary)
-  );
+  // FOYER
+  role_foyer: 'FoYER',
+  role_foyay: 'FoYAY',
 
-  const colorRow2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('color_purple').setLabel('Purple').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('color_pink').setLabel('Pink').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('color_brown').setLabel('Brown').setStyle(ButtonStyle.Secondary)
-  );
+  // Systems
+  role_gaming: 'Gaming',
+  role_pc: 'PC',
+  role_xbox: 'Xbox',
+  role_playstation: 'Playstation',
+  role_nintendo: 'Nintendo',
 
-  // ===== FOYER vs FOYAY =====
-  const foyerEmbed = new EmbedBuilder()
-    .setTitle('🔥 FOYER vs FOYAY')
-    .setDescription('Choose wisely')
-    .setColor(0xED4245);
-
-  const foyerRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('role_foyer').setLabel('FoYER').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('role_foyay').setLabel('FoYAY').setStyle(ButtonStyle.Danger)
-  );
-
-  // ===== GAMING SYSTEMS =====
-  const systemsEmbed = new EmbedBuilder()
-    .setTitle('🎮 Gaming Systems')
-    .setDescription('Pick what you play on')
-    .setColor(0x57F287);
-
-  const systemsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('role_gaming').setLabel('Gaming').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('role_pc').setLabel('PC').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('role_xbox').setLabel('Xbox').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('role_playstation').setLabel('Playstation').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('role_nintendo').setLabel('Nintendo').setStyle(ButtonStyle.Secondary)
-  );
-
-  // ===== GAMES =====
-  const gamesEmbed = new EmbedBuilder()
-    .setTitle('🕹️ Games')
-    .setDescription('Choose your battles')
-    .setColor(0xFEE75C);
-
-  const gamesRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('role_helldiver').setLabel('Helldiver').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('role_cod').setLabel('COD Noob').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('role_dayz').setLabel('DayZ Survivor').setStyle(ButtonStyle.Success)
-  );
-
-  // ===== SEND IN ORDER =====
-  await channel.send({ embeds: [genderEmbed], components: [genderRow] });
-  await channel.send({ embeds: [colorsEmbed], components: [colorRow1, colorRow2] });
-  await channel.send({ embeds: [foyerEmbed], components: [foyerRow] });
-  await channel.send({ embeds: [systemsEmbed], components: [systemsRow] });
-  await channel.send({ embeds: [gamesEmbed], components: [gamesRow] });
+  // Games
+  role_helldiver: 'Helldiver',
+  role_cod: 'COD Noob',
+  role_dayz: 'DayZ Survivor'
 };
+
+const exclusiveGroups = {
+  gender: ['Man', 'Woman'],
+  colors: ['Red', 'Orange', 'Yellow', 'Green',]()
 
