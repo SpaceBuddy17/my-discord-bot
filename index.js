@@ -39,7 +39,7 @@ const commands = [
     .setDescription('Sends a branded welcome message'),
 
   new SlashCommandBuilder()
-    .setName('roles')
+    .setName('selfroles') // renamed here
     .setDescription('Posts the role selection panel')
 ].map(cmd => cmd.toJSON());
 
@@ -61,11 +61,9 @@ const rest = new REST({ version: '10' }).setToken(token);
 /* ===================== ROLE CONFIG ===================== */
 
 const roleMap = {
-  // Gender
   role_man: 'Man',
   role_woman: 'Woman',
 
-  // Colors
   color_red: 'Red',
   color_orange: 'Orange',
   color_yellow: 'Yellow',
@@ -75,18 +73,15 @@ const roleMap = {
   color_pink: 'Pink',
   color_brown: 'Brown',
 
-  // FOYER
   role_foyer: 'FoYER',
   role_foyay: 'FoYAY',
 
-  // Systems
   role_gaming: 'Gaming',
   role_pc: 'PC',
   role_xbox: 'Xbox',
   role_playstation: 'Playstation',
   role_nintendo: 'Nintendo',
 
-  // Games
   role_helldiver: 'Helldiver',
   role_cod: 'COD Noob',
   role_dayz: 'DayZ Survivor'
@@ -115,7 +110,6 @@ const games = [
 /* ===================== SEND ROLE EMBEDS ===================== */
 
 async function sendRoleEmbeds(channel) {
-
   // 👤 Gender
   await channel.send({
     embeds: [
@@ -231,7 +225,7 @@ client.on('interactionCreate', async interaction => {
       });
     }
 
-    if (interaction.commandName === 'roles') {
+    if (interaction.commandName === 'selfroles') { // renamed here
       await interaction.reply({ content: '📌 Posting role panel…', ephemeral: true });
       await sendRoleEmbeds(interaction.channel);
       return;
@@ -291,3 +285,4 @@ client.once('ready', () => {
 });
 
 client.login(token);
+
