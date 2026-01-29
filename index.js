@@ -123,7 +123,17 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
-    const embeds = [];
+    // Defer reply first
+    await interaction.deferReply({ ephemeral: true });
+
+    const introEmbed = new EmbedBuilder()
+      .setTitle('Welcome to the #self-roles channel!')
+      .setDescription(
+        'Here, you can choose roles to join groups, sign up for notifications, or change your name color! Just click a button and you will be assigned the corresponding role.'
+      )
+      .setColor(0xFFFFFF);
+
+    const embeds = [introEmbed];
     const rows = [];
 
     for (const category of roleCategories) {
@@ -150,7 +160,7 @@ client.on('interactionCreate', async interaction => {
       rows.push(row);
     }
 
-    await interaction.reply({ embeds: embeds, components: rows, ephemeral: true });
+    await interaction.editReply({ embeds: embeds, components: rows });
   }
 });
 
