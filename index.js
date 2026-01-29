@@ -77,16 +77,16 @@ const roleCategories = [
     description: 'If you play videogames, which console(s) do you play on?',
     color: 0xFFA500,
     roles: [
-      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Secondary },       // grey
-      { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },       // green
-      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Primary }, // blue
-      { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }   // red
+      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Secondary },
+      { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },
+      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Primary },
+      { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }
     ]
   },
   {
     title: 'GAMES',
     description: 'Which games do you own that you would like to play with others?',
-    color: 0xFFFFFF,
+    color: 0x808080,
     roles: [
       { id: '1463054662574932039', label: '🌎 HECKDIVER', style: ButtonStyle.Secondary },
       { id: '1463054757882101881', label: '🪂 COD NOOB', style: ButtonStyle.Secondary },
@@ -95,17 +95,17 @@ const roleCategories = [
   },
   {
     title: 'PICK YOUR COLOR',
-    description: 'Choose a color for your name!',
+    description: 'Choose your display color!',
     color: 0xFF69B4,
     roles: [
-      { id: '1463058233940901892', label: 'RED', style: ButtonStyle.Danger },
-      { id: '1463058244921589770', label: 'ORANGE', style: ButtonStyle.Primary },
-      { id: '1463058237996662950', label: 'YELLOW', style: ButtonStyle.Secondary },
-      { id: '1463058235748782256', label: 'GREEN', style: ButtonStyle.Success },
-      { id: '1463058251787669577', label: 'BLUE', style: ButtonStyle.Primary },
-      { id: '1463058240307990548', label: 'PURPLE', style: ButtonStyle.Secondary },
-      { id: '1466296912758968485', label: 'PINK', style: ButtonStyle.Primary },
-      { id: '1463058259266240734', label: 'BROWN', style: ButtonStyle.Secondary }
+      { id: '1463058233940901892', label: 'Red', style: ButtonStyle.Danger },
+      { id: '1463058244921589770', label: 'Orange', style: ButtonStyle.Primary },
+      { id: '1463058237996662950', label: 'Yellow', style: ButtonStyle.Secondary },
+      { id: '1463058235748782256', label: 'Green', style: ButtonStyle.Success },
+      { id: '1463058251787669577', label: 'Blue', style: ButtonStyle.Primary },
+      { id: '1463058240307990548', label: 'Purple', style: ButtonStyle.Secondary },
+      { id: '1466296912758968485', label: 'Pink', style: ButtonStyle.Primary },
+      { id: '1463058259266240734', label: 'Brown', style: ButtonStyle.Secondary }
     ]
   }
 ];
@@ -133,29 +133,42 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
-    // Loop through categories and send embeds
-    let first = true;
+    // Intro embed
+    const introEmbed = new EmbedBuilder()
+      .setTitle('**Welcome to the #self-roles channel!**')
+      .setDescription(
+        'Here, you can choose roles to join groups, sign up for notifications, or change your name color! Just click a button and you will be assigned the corresponding role.'
+      )
+      .setColor(0xFFFFFF); // White
+    await interaction.reply({ embeds: [introEmbed], ephemeral: false });
+
+    // Send role embeds
     for (const category of roleCategories) {
       const embed = new EmbedBuilder()
         .setTitle(category.title)
         .setDescription(category.description)
         .setColor(category.color);
 
-      const row = new ActionRowBuilder();
-      for (const role of category.roles) {
+      const rows = [];
+      let currentRow = new ActionRowBuilder();
+
+      for (let i = 0; i < category.roles.length; i++) {
+        const role = category.roles[i];
         const button = new ButtonBuilder()
           .setCustomId(role.id)
           .setLabel(role.label)
           .setStyle(role.style);
-        row.addComponents(button);
+
+        currentRow.addComponents(button);
+
+        // Discord max 5 buttons per row
+        if (currentRow.components.length === 5 || i === category.roles.length - 1) {
+          rows.push(currentRow);
+          currentRow = new ActionRowBuilder();
+        }
       }
 
-      if (first) {
-        await interaction.reply({ embeds: [embed], components: [row], ephemeral: false });
-        first = false;
-      } else {
-        await interaction.followUp({ embeds: [embed], components: [row], ephemeral: false });
-      }
+      await interaction.followUp({ embeds: [embed], components: rows, ephemeral: false });
     }
   }
 });
@@ -183,3 +196,4 @@ client.on('interactionCreate', async interaction => {
 // 8️⃣ Log bot in
 client.once('ready', () => console.log(`Logged in as ${client.user.tag}`));
 client.login(token);
+
