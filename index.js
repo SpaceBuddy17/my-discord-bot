@@ -42,7 +42,7 @@ const rest = new REST({ version: '10' }).setToken(token);
   }
 })();
 
-// 5️⃣ Define self-role categories in the desired order
+// 5️⃣ Define self-role categories
 const roleCategories = [
   {
     title: 'MALE OR FEMALE',
@@ -77,8 +77,8 @@ const roleCategories = [
     description: 'If you play videogames, which console(s) do you play on?',
     color: 0xFFA500,
     roles: [
-      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Secondary },       // changed to grey
-      { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },     
+      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Secondary }, // grey
+      { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },
       { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Primary }, // blue
       { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }
     ]
@@ -88,9 +88,9 @@ const roleCategories = [
     description: 'Which games do you own that you would like to play with others?',
     color: 0x808080, // grey embed
     roles: [
-      { id: 'HECKDIVER_ROLE_ID', label: '🌎 HECKDIVER', style: ButtonStyle.Secondary },
-      { id: 'COD_NOOB_ROLE_ID', label: '🪂 COD NOOB', style: ButtonStyle.Secondary },
-      { id: 'DAYZ_SURVIVOR_ROLE_ID', label: '🆘 DAYZ SURVIVOR', style: ButtonStyle.Secondary }
+      { id: '1463018476309577865', label: '🌎 HECKDIVER', style: ButtonStyle.Secondary },
+      { id: '1463018476309577865', label: '🪂 COD NOOB', style: ButtonStyle.Secondary },
+      { id: '1463018476309577865', label: '🆘 DAYZ SURVIVOR', style: ButtonStyle.Secondary }
     ]
   },
   {
@@ -105,7 +105,7 @@ const roleCategories = [
       { id: '1463058251787669577', label: 'Blue', style: ButtonStyle.Primary },
       { id: '1463058240307990548', label: 'Purple', style: ButtonStyle.Secondary },
       { id: '1466296912758968485', label: 'Pink', style: ButtonStyle.Primary },
-      { id: '1463058235748782256', label: 'Brown', style: ButtonStyle.Secondary }
+      { id: '1463058259266240734', label: 'Brown', style: ButtonStyle.Secondary }
     ]
   }
 ];
@@ -133,58 +133,23 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
-    // 1️⃣ Get the #self-roles channel
-    const channel = interaction.guild.channels.cache.find(
-      c => c.name === 'self-roles' && c.isTextBased()
-    );
-    if (!channel) {
-      await interaction.reply({
-        content: '❌ Could not find a #self-roles channel!',
-        ephemeral: true
-      });
-      return;
-    }
-
-    // 2️⃣ Top info embed
-    const infoEmbed = new EmbedBuilder()
-      .setTitle('**Welcome to the #self-roles channel!**')
-      .setDescription(
-        'Here, you can choose roles to join groups, sign up for notifications, or change your name color! Just click a button and you will be assigned the corresponding role.'
-      )
-      .setColor(0xFFFFFF); // white
-    await channel.send({ embeds: [infoEmbed] });
-
-    // 3️⃣ Send role embeds
     for (const category of roleCategories) {
       const embed = new EmbedBuilder()
         .setTitle(category.title)
         .setDescription(category.description)
         .setColor(category.color);
 
-      // Split buttons into rows of max 5
-      const rows = [];
-      for (let i = 0; i < category.roles.length; i += 5) {
-        const row = new ActionRowBuilder();
-        const slice = category.roles.slice(i, i + 5);
-        slice.forEach(role => {
-          row.addComponents(
-            new ButtonBuilder()
-              .setCustomId(role.id)
-              .setLabel(role.label)
-              .setStyle(role.style)
-          );
-        });
-        rows.push(row);
+      const row = new ActionRowBuilder();
+      for (const role of category.roles) {
+        const button = new ButtonBuilder()
+          .setCustomId(role.id)
+          .setLabel(role.label)
+          .setStyle(role.style);
+        row.addComponents(button);
       }
 
-      await channel.send({ embeds: [embed], components: rows });
+      await interaction.reply({ embeds: [embed], components: [row], ephemeral: false });
     }
-
-    // 4️⃣ Confirm to user
-    await interaction.reply({
-      content: '✅ Self-role messages have been sent to #self-roles!',
-      ephemeral: true
-    });
   }
 });
 
