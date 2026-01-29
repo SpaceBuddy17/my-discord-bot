@@ -68,9 +68,9 @@ const roleCategories = [
     description: 'If you play videogames, which console(s) do you play on?',
     color: 0xFFA500,
     roles: [
-      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Secondary },      // purple
+      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Primary },      // Will override to purple
       { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },
-      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Primary }, // blue
+      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Secondary }, // Will override to blue
       { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }
     ]
   },
@@ -123,29 +123,38 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
-    const embed = new EmbedBuilder()
-      .setTitle('**Self Roles**')
+    // Top informational embed
+    const infoEmbed = new EmbedBuilder()
+      .setTitle('**Welcome to the #self-roles channel!**')
       .setDescription(
-        'Click a button below to assign yourself a role in each category!'
+        'Here, you can choose roles to join groups, sign up for notifications, or change your name color! Just click a button and you will be assigned the corresponding role.'
       )
-      .setColor(0x00FFFF);
+      .setColor(0x00FFFF); // cyan for info
+    await interaction.reply({ embeds: [infoEmbed], ephemeral: true });
 
-    // Create multiple rows
-    const rows = [];
+    // Send role embeds
     for (const category of roleCategories) {
+      const embed = new EmbedBuilder()
+        .setTitle(category.title)
+        .setDescription(category.description)
+        .setColor(category.color);
+
       const row = new ActionRowBuilder();
       for (const role of category.roles) {
-        row.addComponents(
-          new ButtonBuilder()
-            .setCustomId(role.id)
-            .setLabel(role.label)
-            .setStyle(role.style)
-        );
-      }
-      rows.push(row);
-    }
+        const button = new ButtonBuilder()
+          .setCustomId(role.id)
+          .setLabel(role.label)
+          .setStyle(role.style);
 
-    await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+        // Override specific button colors
+        if (role.label.includes('PC')) button.setStyle(ButtonStyle.Secondary);       // Purple
+        if (role.label.includes('PLAYSTATION')) button.setStyle(ButtonStyle.Primary); // Blue
+
+        row.addComponents(button);
+      }
+
+      await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true });
+    }
   }
 });
 
