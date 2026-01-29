@@ -68,9 +68,9 @@ const roleCategories = [
     description: 'If you play videogames, which console(s) do you play on?',
     color: 0xFFA500,
     roles: [
-      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Primary },
+      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Secondary },      // purple
       { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },
-      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Secondary },
+      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Primary }, // blue
       { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }
     ]
   },
@@ -123,34 +123,29 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
-    // Top informational embed
-    const infoEmbed = new EmbedBuilder()
-      .setTitle('**Welcome to the #self-roles channel!**')
+    const embed = new EmbedBuilder()
+      .setTitle('**Self Roles**')
       .setDescription(
-        'Here, you can choose roles to join groups, sign up for notifications, or change your name color! Just click a button and you will be assigned the corresponding role.'
+        'Click a button below to assign yourself a role in each category!'
       )
-      .setColor(0x00FFFF); // cyan for info
-    await interaction.reply({ embeds: [infoEmbed], ephemeral: true });
+      .setColor(0x00FFFF);
 
-    // Send role embeds
+    // Create multiple rows
+    const rows = [];
     for (const category of roleCategories) {
-      const embed = new EmbedBuilder()
-        .setTitle(category.title)
-        .setDescription(category.description)
-        .setColor(category.color);
-
       const row = new ActionRowBuilder();
       for (const role of category.roles) {
-        const button = new ButtonBuilder()
-          .setCustomId(role.id)
-          .setLabel(role.label)
-          .setStyle(role.style);
-
-        row.addComponents(button);
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(role.id)
+            .setLabel(role.label)
+            .setStyle(role.style)
+        );
       }
-
-      await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true });
+      rows.push(row);
     }
+
+    await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
   }
 });
 
