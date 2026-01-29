@@ -98,14 +98,14 @@ const roleCategories = [
     description: 'Choose your display color!',
     color: 0xFF69B4,
     roles: [
-      { id: '1463058233940901892', label: 'Red', style: ButtonStyle.Danger },
-      { id: '1463058244921589770', label: 'Orange', style: ButtonStyle.Primary },
-      { id: '1463058237996662950', label: 'Yellow', style: ButtonStyle.Secondary },
-      { id: '1463058235748782256', label: 'Green', style: ButtonStyle.Success },
-      { id: '1463058251787669577', label: 'Blue', style: ButtonStyle.Primary },
-      { id: '1463058240307990548', label: 'Purple', style: ButtonStyle.Secondary },
-      { id: '1466296912758968485', label: 'Pink', style: ButtonStyle.Primary },
-      { id: '1463058259266240734', label: 'Brown', style: ButtonStyle.Secondary }
+      { id: '1463058233940901892', label: '🔴 Red', style: ButtonStyle.Secondary },
+      { id: '1463058244921589770', label: '🟠 Orange', style: ButtonStyle.Secondary },
+      { id: '1463058237996662950', label: '🟡 Yellow', style: ButtonStyle.Secondary },
+      { id: '1463058235748782256', label: '🟢 Green', style: ButtonStyle.Secondary },
+      { id: '1463058251787669577', label: '🔵 Blue', style: ButtonStyle.Secondary },
+      { id: '1463058240307990548', label: '🟣 Purple', style: ButtonStyle.Secondary },
+      { id: '1466296912758968485', label: '🎀 Pink', style: ButtonStyle.Secondary },
+      { id: '1463058259266240734', label: '🟤 Brown', style: ButtonStyle.Secondary }
     ]
   }
 ];
@@ -161,7 +161,6 @@ client.on('interactionCreate', async interaction => {
 
         currentRow.addComponents(button);
 
-        // Discord max 5 buttons per row
         if (currentRow.components.length === 5 || i === category.roles.length - 1) {
           rows.push(currentRow);
           currentRow = new ActionRowBuilder();
