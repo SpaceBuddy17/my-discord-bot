@@ -22,15 +22,9 @@ const guildId = process.env.GUILD_ID;
 
 // 3️⃣ Define slash commands
 const commands = [
-  new SlashCommandBuilder()
-    .setName('ping')
-    .setDescription('Replies with Pong!'),
-  new SlashCommandBuilder()
-    .setName('welcome')
-    .setDescription('Sends a branded welcome message'),
-  new SlashCommandBuilder()
-    .setName('selfroles')
-    .setDescription('Sends self-role messages with buttons')
+  new SlashCommandBuilder().setName('ping').setDescription('Replies with Pong!'),
+  new SlashCommandBuilder().setName('welcome').setDescription('Sends a branded welcome message'),
+  new SlashCommandBuilder().setName('selfroles').setDescription('Sends self-role messages with buttons')
 ].map(cmd => cmd.toJSON());
 
 // 4️⃣ Register commands with Discord
@@ -48,139 +42,118 @@ const rest = new REST({ version: '10' }).setToken(token);
   }
 })();
 
-// 5️⃣ Handle slash commands
+// 5️⃣ Define self-role categories in a data-driven way
+const roleCategories = [
+  {
+    title: 'MALE OR FEMALE',
+    description: 'Choose your gender by selecting one of the buttons!',
+    color: 0xFFFFFF,
+    roles: [
+      { id: '1319394099643809832', label: '♂️ MALE', style: ButtonStyle.Primary },
+      { id: '1463018695046725705', label: '♀️ FEMALE', style: ButtonStyle.Danger }
+    ]
+  },
+  {
+    title: 'WHAT ARE YOUR INTERESTS?',
+    description: 'Select what you would like to be notified for!',
+    color: 0x800080,
+    roles: [
+      { id: '1466294642139074763', label: '📖 DEVOTIONALS', style: ButtonStyle.Secondary },
+      { id: '1466294700507140259', label: '⛪ CHURCH WITHOUT WALLS', style: ButtonStyle.Secondary },
+      { id: '1463018476309577865', label: '🎮 GAMING', style: ButtonStyle.Secondary }
+    ]
+  },
+  {
+    title: 'GAMING SYSTEMS',
+    description: 'If you play videogames, which console(s) do you play on?',
+    color: 0xFFA500,
+    roles: [
+      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Primary },
+      { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },
+      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Secondary },
+      { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }
+    ]
+  },
+  {
+    title: 'FOYER VS. FOYAY',
+    description: 'How should this word be pronounced?',
+    color: 0xFFFFFF,
+    roles: [
+      { id: '1463044307274694840', label: 'FOYER', style: ButtonStyle.Secondary },
+      { id: '1463044533909717074', label: 'FOYAY', style: ButtonStyle.Secondary }
+    ]
+  },
+  {
+    title: 'PICK YOUR COLOR',
+    description: 'Red, Orange, Yellow, Green, Blue, Purple, Pink, Brown',
+    color: 0xFF69B4,
+    roles: [
+      { id: '1463058233940901892', label: 'Red', style: ButtonStyle.Danger },
+      { id: '1463058244921589770', label: 'Orange', style: ButtonStyle.Primary },
+      { id: '1463058237996662950', label: 'Yellow', style: ButtonStyle.Secondary },
+      { id: '1463058235748782256', label: 'Green', style: ButtonStyle.Success },
+      { id: '1463058251787669577', label: 'Blue', style: ButtonStyle.Primary },
+      { id: '1463058240307990548', label: 'Purple', style: ButtonStyle.Secondary },
+      { id: '1466296912758968485', label: 'Pink', style: ButtonStyle.Primary },
+      { id: '1463058235748782256', label: 'Brown', style: ButtonStyle.Secondary }
+    ]
+  }
+];
+
+// 6️⃣ Handle slash commands
 client.on('interactionCreate', async interaction => {
   if (!interaction.isCommand()) return;
 
   if (interaction.commandName === 'ping') {
     await interaction.reply('Pong!');
+    return;
   }
 
   if (interaction.commandName === 'welcome') {
     await interaction.reply({
-      embeds: [new EmbedBuilder()
-        .setTitle('👋 Welcome!')
-        .setDescription('Welcome to the server! We’re so happy to have you here 😄')
-        .setColor(0xFF9900)
-        .setFooter({ text: 'Destiny Church' })
+      embeds: [
+        new EmbedBuilder()
+          .setTitle('👋 Welcome!')
+          .setDescription('Welcome to the server! We’re so happy to have you here 😄')
+          .setColor(0xFF9900)
+          .setFooter({ text: 'Destiny Church' })
       ]
     });
+    return;
   }
 
   if (interaction.commandName === 'selfroles') {
-    // ================== Gender ==================
-    const genderEmbed = new EmbedBuilder()
-      .setTitle('MALE OR FEMALE')
-      .setDescription('Choose your gender by selecting one of the buttons!')
-      .setColor(0xFFFFFF); // White color
+    for (const category of roleCategories) {
+      const embed = new EmbedBuilder()
+        .setTitle(category.title)
+        .setDescription(category.description)
+        .setColor(category.color);
 
-    const genderRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('role_male')
-          .setLabel('♂️MALE')
-          .setStyle(ButtonStyle.Primary), // Blue
-        new ButtonBuilder()
-          .setCustomId('role_female')
-          .setLabel('♀️FEMALE')
-          .setStyle(ButtonStyle.Danger) // Pink
-      );
+      const row = new ActionRowBuilder();
+      for (const role of category.roles) {
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(role.id)
+            .setLabel(role.label)
+            .setStyle(role.style)
+        );
+      }
 
-    // ================== Interests ==================
-    const interestEmbed = new EmbedBuilder()
-      .setTitle('WHAT ARE YOUR INTERESTS?')
-      .setDescription('Select what you would like to be notified for!')
-      .setColor(0x800080); // Purple
-
-    const interestRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder().setCustomId('role_devotionals').setLabel('📖 DEVOTIONALS').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('role_cwow').setLabel('⛪ CHURCH WITHOUT WALLS').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('role_gaming').setLabel('🎮 GAMING').setStyle(ButtonStyle.Secondary)
-      );
-
-    // ================== Gaming Systems ==================
-    const gamingEmbed = new EmbedBuilder()
-      .setTitle('GAMING SYSTEMS')
-      .setDescription('If you play videogames, which console(s) do you play on?')
-      .setColor(0x00FF00);
-
-    const gamingRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder().setCustomId('role_pc').setLabel('💻 PC').setStyle(ButtonStyle.Primary), // Blue
-        new ButtonBuilder().setCustomId('role_xbox').setLabel('❎ XBOX').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('role_playstation').setLabel('⭕ PLAYSTATION').setStyle(ButtonStyle.Secondary), // Grey
-        new ButtonBuilder().setCustomId('role_nintendo').setLabel('🕹️ NINTENDO').setStyle(ButtonStyle.Danger) // Red
-      );
-
-    // ================== FOYER vs FOYAY ==================
-    const foyerEmbed = new EmbedBuilder()
-      .setTitle('FOYER VS. FOYAY')
-      .setDescription('How should this word be pronounced?')
-      .setColor(0xFFFFFF); // White
-
-    const foyerRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder().setCustomId('role_foyer').setLabel('FOYER').setStyle(ButtonStyle.Secondary), // Grey
-        new ButtonBuilder().setCustomId('role_foyay').setLabel('FOYAY').setStyle(ButtonStyle.Secondary)  // Grey
-      );
-
-    // ================== Pick Your Color ==================
-    const colorEmbed = new EmbedBuilder()
-      .setTitle('PICK YOUR COLOR')
-      .setDescription('Red, Orange, Yellow, Green, Blue, Purple, Pink, Brown')
-      .setColor(0xFF69B4);
-
-    const colorRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder().setCustomId('color_red').setLabel('Red').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('color_orange').setLabel('Orange').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('color_yellow').setLabel('Yellow').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('color_green').setLabel('Green').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('color_blue').setLabel('Blue').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('color_purple').setLabel('Purple').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('color_pink').setLabel('Pink').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('color_brown').setLabel('Brown').setStyle(ButtonStyle.Secondary)
-      );
-
-    // ================== Send embeds ==================
-    await interaction.reply({ embeds: [genderEmbed], components: [genderRow], ephemeral: true });
-    await interaction.followUp({ embeds: [interestEmbed], components: [interestRow], ephemeral: true });
-    await interaction.followUp({ embeds: [gamingEmbed], components: [gamingRow], ephemeral: true });
-    await interaction.followUp({ embeds: [foyerEmbed], components: [foyerRow], ephemeral: true });
-    await interaction.followUp({ embeds: [colorEmbed], components: [colorRow], ephemeral: true });
+      // Send as ephemeral messages
+      if (!interaction.replied) {
+        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+      } else {
+        await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true });
+      }
+    }
   }
 });
 
-// 6️⃣ Handle button interactions
+// 7️⃣ Handle button interactions
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
-  const roleMap = {
-    role_male: '1319394099643809832',     // Men's Group
-    role_female: '1463018695046725705',   // Women's Group
-    role_devotionals: '1466294642139074763',
-    role_cwow: '1466294700507140259',
-    role_gaming: '1463018476309577865',
-    role_pc: '1463017870630981779',
-    role_xbox: '1463017911798202368',
-    role_playstation: '1463018307971190928',
-    role_nintendo: '1463017956903616668',
-    role_foyer: '1463044307274694840',
-    role_foyay: '1463044533909717074',
-    color_red: 'ROLE_ID_RED',
-    color_orange: 'ROLE_ID_ORANGE',
-    color_yellow: 'ROLE_ID_YELLOW',
-    color_green: 'ROLE_ID_GREEN',
-    color_blue: 'ROLE_ID_BLUE',
-    color_purple: 'ROLE_ID_PURPLE',
-    color_pink: 'ROLE_ID_PINK',
-    color_brown: 'ROLE_ID_BROWN'
-  };
-
-  const roleId = roleMap[interaction.customId];
-  if (!roleId) return;
-
+  const roleId = interaction.customId;
   try {
     const member = interaction.guild.members.cache.get(interaction.user.id);
     if (member.roles.cache.has(roleId)) {
@@ -196,6 +169,6 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// 7️⃣ Log bot in
+// 8️⃣ Log bot in
 client.once('ready', () => console.log(`Logged in as ${client.user.tag}`));
 client.login(token);
