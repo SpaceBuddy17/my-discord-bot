@@ -42,7 +42,7 @@ const rest = new REST({ version: '10' }).setToken(token);
   }
 })();
 
-// 5️⃣ Define self-role categories in a data-driven way
+// 5️⃣ Define self-role categories
 const roleCategories = [
   {
     title: 'MALE OR FEMALE',
@@ -56,7 +56,7 @@ const roleCategories = [
   {
     title: 'WHAT ARE YOUR INTERESTS?',
     description: 'Select what you would like to be notified for!',
-    color: 0x800080,
+    color: 0x9702D4,
     roles: [
       { id: '1466294642139074763', label: '📖 DEVOTIONALS', style: ButtonStyle.Secondary },
       { id: '1466294700507140259', label: '⛪ CHURCH WITHOUT WALLS', style: ButtonStyle.Secondary },
@@ -123,6 +123,17 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
+    // Top informational embed (bold style)
+    const infoEmbed = new EmbedBuilder()
+      .setTitle('**Welcome to the #self-roles channel!**')
+      .setDescription(
+        '**Here, you can choose roles to join groups, sign up for notifications, or change your name color!**\nJust click a button and you will be assigned the corresponding role.'
+      )
+      .setColor(0xFFFFFF); // White color to match other role embeds
+
+    await interaction.reply({ embeds: [infoEmbed], ephemeral: true });
+
+    // Send role embeds
     for (const category of roleCategories) {
       const embed = new EmbedBuilder()
         .setTitle(category.title)
@@ -131,20 +142,15 @@ client.on('interactionCreate', async interaction => {
 
       const row = new ActionRowBuilder();
       for (const role of category.roles) {
-        row.addComponents(
-          new ButtonBuilder()
-            .setCustomId(role.id)
-            .setLabel(role.label)
-            .setStyle(role.style)
-        );
+        const button = new ButtonBuilder()
+          .setCustomId(role.id)
+          .setLabel(role.label)
+          .setStyle(role.style);
+
+        row.addComponents(button);
       }
 
-      // Send as ephemeral messages
-      if (!interaction.replied) {
-        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
-      } else {
-        await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true });
-      }
+      await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true });
     }
   }
 });
