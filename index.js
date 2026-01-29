@@ -68,9 +68,9 @@ const roleCategories = [
     description: 'If you play videogames, which console(s) do you play on?',
     color: 0xFFA500,
     roles: [
-      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Primary },      // Will override to purple
+      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Primary },       // Purple button
       { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },
-      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Secondary }, // Will override to blue
+      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Primary }, // Blue button
       { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }
     ]
   },
@@ -96,6 +96,16 @@ const roleCategories = [
       { id: '1463058240307990548', label: 'Purple', style: ButtonStyle.Secondary },
       { id: '1466296912758968485', label: 'Pink', style: ButtonStyle.Primary },
       { id: '1463058235748782256', label: 'Brown', style: ButtonStyle.Secondary }
+    ]
+  },
+  {
+    title: 'GAMES',
+    description: 'Which games do you own that you would like to play with others?',
+    color: 0x808080, // grey embed
+    roles: [
+      { id: 'HECKDIVER_ROLE_ID', label: '🌎 HECKDIVER', style: ButtonStyle.Secondary },
+      { id: 'COD_NOOB_ROLE_ID', label: '🪂 COD NOOB', style: ButtonStyle.Secondary },
+      { id: 'DAYZ_SURVIVOR_ROLE_ID', label: '🆘 DAYZ SURVIVOR', style: ButtonStyle.Secondary }
     ]
   }
 ];
@@ -123,16 +133,28 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
-    // Top informational embed
+    // 1️⃣ Get the #self-roles channel
+    const channel = interaction.guild.channels.cache.find(
+      c => c.name === 'self-roles' && c.isTextBased()
+    );
+    if (!channel) {
+      await interaction.reply({
+        content: '❌ Could not find a #self-roles channel!',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // 2️⃣ Top info embed
     const infoEmbed = new EmbedBuilder()
       .setTitle('**Welcome to the #self-roles channel!**')
       .setDescription(
         'Here, you can choose roles to join groups, sign up for notifications, or change your name color! Just click a button and you will be assigned the corresponding role.'
       )
-      .setColor(0x00FFFF); // cyan for info
-    await interaction.reply({ embeds: [infoEmbed], ephemeral: true });
+      .setColor(0xFFFFFF); // white
+    await channel.send({ embeds: [infoEmbed] });
 
-    // Send role embeds
+    // 3️⃣ Send role embeds
     for (const category of roleCategories) {
       const embed = new EmbedBuilder()
         .setTitle(category.title)
@@ -146,15 +168,17 @@ client.on('interactionCreate', async interaction => {
           .setLabel(role.label)
           .setStyle(role.style);
 
-        // Override specific button colors
-        if (role.label.includes('PC')) button.setStyle(ButtonStyle.Secondary);       // Purple
-        if (role.label.includes('PLAYSTATION')) button.setStyle(ButtonStyle.Primary); // Blue
-
         row.addComponents(button);
       }
 
-      await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true });
+      await channel.send({ embeds: [embed], components: [row] });
     }
+
+    // 4️⃣ Confirm to user
+    await interaction.reply({
+      content: '✅ Self-role messages have been sent to #self-roles!',
+      ephemeral: true
+    });
   }
 });
 
