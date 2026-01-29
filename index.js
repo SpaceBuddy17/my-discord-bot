@@ -1,3 +1,4 @@
+
 const { 
   Client, 
   GatewayIntentBits, 
@@ -107,4 +108,15 @@ client.on('interactionCreate', async interaction => {
       await member.roles.remove(roleId);
       await interaction.reply({ content: 'Role removed!', ephemeral: true });
     } else {
-      await
+      await member.roles.add(roleId);
+      await interaction.reply({ content: 'Role added!', ephemeral: true });
+    }
+  } catch (err) {
+    console.error(err);
+    await interaction.reply({ content: 'Failed to assign role.', ephemeral: true });
+  }
+});
+
+// 7️⃣ Log bot in
+client.once('ready', () => console.log(`Logged in as ${client.user.tag}`));
+client.login(token);
