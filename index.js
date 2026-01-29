@@ -79,50 +79,50 @@ client.on('interactionCreate', async interaction => {
         new ButtonBuilder()
           .setCustomId('role_male')
           .setLabel('♂️MALE')
-          .setStyle(ButtonStyle.Primary), // Blue button
+          .setStyle(ButtonStyle.Primary), // Blue
         new ButtonBuilder()
           .setCustomId('role_female')
           .setLabel('♀️FEMALE')
-          .setStyle(ButtonStyle.Danger) // Pink button
+          .setStyle(ButtonStyle.Danger) // Pink
       );
 
     // ================== Interests ==================
     const interestEmbed = new EmbedBuilder()
       .setTitle('WHAT ARE YOUR INTERESTS?')
-      .setDescription('📖 Devotionals, ⛪ Church Without Walls, 🎮 Gaming')
-      .setColor(0xFFA500);
+      .setDescription('Select what you would like to be notified for!')
+      .setColor(0x800080); // Purple
 
     const interestRow = new ActionRowBuilder()
       .addComponents(
-        new ButtonBuilder().setCustomId('role_devotionals').setLabel('📖 Devotionals').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('role_cwow').setLabel('⛪ Church Without Walls').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('role_gaming').setLabel('🎮 Gaming').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('role_devotionals').setLabel('📖 DEVOTIONALS').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('role_cwow').setLabel('⛪ CHURCH WITHOUT WALLS').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('role_gaming').setLabel('🎮 GAMING').setStyle(ButtonStyle.Secondary)
       );
 
     // ================== Gaming Systems ==================
     const gamingEmbed = new EmbedBuilder()
       .setTitle('GAMING SYSTEMS')
-      .setDescription('💻 PC, ❎ Xbox, ⭕ Playstation, 🕹️ Nintendo')
+      .setDescription('If you play videogames, which console(s) do you play on?')
       .setColor(0x00FF00);
 
     const gamingRow = new ActionRowBuilder()
       .addComponents(
-        new ButtonBuilder().setCustomId('role_pc').setLabel('💻 PC').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('role_xbox').setLabel('❎ Xbox').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('role_playstation').setLabel('⭕ Playstation').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('role_nintendo').setLabel('🕹️ Nintendo').setStyle(ButtonStyle.Success)
+        new ButtonBuilder().setCustomId('role_pc').setLabel('💻 PC').setStyle(ButtonStyle.Primary), // Blue
+        new ButtonBuilder().setCustomId('role_xbox').setLabel('❎ XBOX').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('role_playstation').setLabel('⭕ PLAYSTATION').setStyle(ButtonStyle.Secondary), // Grey
+        new ButtonBuilder().setCustomId('role_nintendo').setLabel('🕹️ NINTENDO').setStyle(ButtonStyle.Danger) // Red
       );
 
     // ================== FOYER vs FOYAY ==================
     const foyerEmbed = new EmbedBuilder()
       .setTitle('FOYER VS. FOYAY')
-      .setDescription('FoYER, FoYAY')
-      .setColor(0x0000FF);
+      .setDescription('How should this word be pronounced?')
+      .setColor(0xFFFFFF); // White
 
     const foyerRow = new ActionRowBuilder()
       .addComponents(
-        new ButtonBuilder().setCustomId('role_foyer').setLabel('FoYER').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('role_foyay').setLabel('FoYAY').setStyle(ButtonStyle.Primary)
+        new ButtonBuilder().setCustomId('role_foyer').setLabel('FOYER').setStyle(ButtonStyle.Secondary), // Grey
+        new ButtonBuilder().setCustomId('role_foyay').setLabel('FOYAY').setStyle(ButtonStyle.Secondary)  // Grey
       );
 
     // ================== Pick Your Color ==================
@@ -157,17 +157,17 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
   const roleMap = {
-    role_male: '1319394099643809832',     // Men's Group role
-    role_female: '1463018695046725705',   // Women's Group role
-    role_devotionals: 'ROLE_ID_DEVOTIONALS',
-    role_cwow: 'ROLE_ID_CHURCH_WITHOUT_WALLS',
-    role_gaming: 'ROLE_ID_GAMING',
-    role_pc: 'ROLE_ID_PC',
-    role_xbox: 'ROLE_ID_XBOX',
-    role_playstation: 'ROLE_ID_PLAYSTATION',
-    role_nintendo: 'ROLE_ID_NINTENDO',
-    role_foyer: 'ROLE_ID_FOYER',
-    role_foyay: 'ROLE_ID_FOYAY',
+    role_male: '1319394099643809832',     // Men's Group
+    role_female: '1463018695046725705',   // Women's Group
+    role_devotionals: '1466294642139074763',
+    role_cwow: '1466294700507140259',
+    role_gaming: '1463018476309577865',
+    role_pc: '1463017870630981779',
+    role_xbox: '1463017911798202368',
+    role_playstation: '1463018307971190928',
+    role_nintendo: '1463017956903616668',
+    role_foyer: '1463044307274694840',
+    role_foyay: '1463044533909717074',
     color_red: 'ROLE_ID_RED',
     color_orange: 'ROLE_ID_ORANGE',
     color_yellow: 'ROLE_ID_YELLOW',
