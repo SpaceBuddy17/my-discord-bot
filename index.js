@@ -86,7 +86,7 @@ const roleCategories = [
   {
     title: 'GAMES',
     description: 'Which games do you own that you would like to play with others?',
-    color: 0x808080,
+    color: 0xFFFFFF,
     roles: [
       { id: '1463054662574932039', label: '🌎 HECKDIVER', style: ButtonStyle.Secondary },
       { id: '1463054757882101881', label: '🪂 COD NOOB', style: ButtonStyle.Secondary },
@@ -98,14 +98,14 @@ const roleCategories = [
     description: 'Choose your display color!',
     color: 0xFF69B4,
     roles: [
-      { id: '1463058233940901892', label: '🔴 Red', style: ButtonStyle.Secondary },
-      { id: '1463058244921589770', label: '🟠 Orange', style: ButtonStyle.Secondary },
-      { id: '1463058237996662950', label: '🟡 Yellow', style: ButtonStyle.Secondary },
-      { id: '1463058235748782256', label: '🟢 Green', style: ButtonStyle.Secondary },
-      { id: '1463058251787669577', label: '🔵 Blue', style: ButtonStyle.Secondary },
-      { id: '1463058240307990548', label: '🟣 Purple', style: ButtonStyle.Secondary },
-      { id: '1466296912758968485', label: '🎀 Pink', style: ButtonStyle.Secondary },
-      { id: '1463058259266240734', label: '🟤 Brown', style: ButtonStyle.Secondary }
+      { id: '1463058233940901892', label: '🔴 RED', style: ButtonStyle.Secondary },
+      { id: '1463058244921589770', label: '🟠 ORANGE', style: ButtonStyle.Secondary },
+      { id: '1463058237996662950', label: '🟡 YELLOW', style: ButtonStyle.Secondary },
+      { id: '1463058235748782256', label: '🟢 GREEN', style: ButtonStyle.Secondary },
+      { id: '1463058251787669577', label: '🔵 BLUE', style: ButtonStyle.Secondary },
+      { id: '1463058240307990548', label: '🟣 PURPLE', style: ButtonStyle.Secondary },
+      { id: '1466296912758968485', label: '🎀 PINK', style: ButtonStyle.Secondary },
+      { id: '1463058259266240734', label: '🟤 BROWN', style: ButtonStyle.Secondary }
     ]
   }
 ];
@@ -133,14 +133,14 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
-    // Intro embed
-    const introEmbed = new EmbedBuilder()
+    // Top informational embed
+    const infoEmbed = new EmbedBuilder()
       .setTitle('**Welcome to the #self-roles channel!**')
       .setDescription(
         'Here, you can choose roles to join groups, sign up for notifications, or change your name color! Just click a button and you will be assigned the corresponding role.'
       )
-      .setColor(0xFFFFFF); // White
-    await interaction.reply({ embeds: [introEmbed], ephemeral: false });
+      .setColor(0xFFFFFF); // white for info
+    await interaction.reply({ embeds: [infoEmbed], ephemeral: false });
 
     // Send role embeds
     for (const category of roleCategories) {
@@ -149,25 +149,17 @@ client.on('interactionCreate', async interaction => {
         .setDescription(category.description)
         .setColor(category.color);
 
-      const rows = [];
-      let currentRow = new ActionRowBuilder();
-
-      for (let i = 0; i < category.roles.length; i++) {
-        const role = category.roles[i];
+      const row = new ActionRowBuilder();
+      for (const role of category.roles) {
         const button = new ButtonBuilder()
           .setCustomId(role.id)
           .setLabel(role.label)
           .setStyle(role.style);
 
-        currentRow.addComponents(button);
-
-        if (currentRow.components.length === 5 || i === category.roles.length - 1) {
-          rows.push(currentRow);
-          currentRow = new ActionRowBuilder();
-        }
+        row.addComponents(button);
       }
 
-      await interaction.followUp({ embeds: [embed], components: rows, ephemeral: false });
+      await interaction.followUp({ embeds: [embed], components: [row], ephemeral: false });
     }
   }
 });
@@ -195,4 +187,3 @@ client.on('interactionCreate', async interaction => {
 // 8️⃣ Log bot in
 client.once('ready', () => console.log(`Logged in as ${client.user.tag}`));
 client.login(token);
-
