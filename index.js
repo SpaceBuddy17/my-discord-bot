@@ -77,35 +77,35 @@ const roleCategories = [
     description: 'If you play videogames, which console(s) do you play on?',
     color: 0xFFA500,
     roles: [
-      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Secondary }, // grey
-      { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },
+      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Secondary },       // grey
+      { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },       // green
       { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Primary }, // blue
-      { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }
+      { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }   // red
     ]
   },
   {
     title: 'GAMES',
     description: 'Which games do you own that you would like to play with others?',
-    color: 0x808080, // grey embed
+    color: 0xFFFFFF,
     roles: [
-      { id: '1463018476309577865', label: '🌎 HECKDIVER', style: ButtonStyle.Secondary },
-      { id: '1463018476309577865', label: '🪂 COD NOOB', style: ButtonStyle.Secondary },
-      { id: '1463018476309577865', label: '🆘 DAYZ SURVIVOR', style: ButtonStyle.Secondary }
+      { id: '1463054662574932039', label: '🌎 HECKDIVER', style: ButtonStyle.Secondary },
+      { id: '1463054757882101881', label: '🪂 COD NOOB', style: ButtonStyle.Secondary },
+      { id: '1463055675100758183', label: '🆘 DAYZ SURVIVOR', style: ButtonStyle.Secondary }
     ]
   },
   {
     title: 'PICK YOUR COLOR',
-    description: 'Red, Orange, Yellow, Green, Blue, Purple, Pink, Brown',
+    description: 'Choose a color for your name!',
     color: 0xFF69B4,
     roles: [
-      { id: '1463058233940901892', label: 'Red', style: ButtonStyle.Danger },
-      { id: '1463058244921589770', label: 'Orange', style: ButtonStyle.Primary },
-      { id: '1463058237996662950', label: 'Yellow', style: ButtonStyle.Secondary },
-      { id: '1463058235748782256', label: 'Green', style: ButtonStyle.Success },
-      { id: '1463058251787669577', label: 'Blue', style: ButtonStyle.Primary },
-      { id: '1463058240307990548', label: 'Purple', style: ButtonStyle.Secondary },
-      { id: '1466296912758968485', label: 'Pink', style: ButtonStyle.Primary },
-      { id: '1463058259266240734', label: 'Brown', style: ButtonStyle.Secondary }
+      { id: '1463058233940901892', label: 'RED', style: ButtonStyle.Danger },
+      { id: '1463058244921589770', label: 'ORANGE', style: ButtonStyle.Primary },
+      { id: '1463058237996662950', label: 'YELLOW', style: ButtonStyle.Secondary },
+      { id: '1463058235748782256', label: 'GREEN', style: ButtonStyle.Success },
+      { id: '1463058251787669577', label: 'BLUE', style: ButtonStyle.Primary },
+      { id: '1463058240307990548', label: 'PURPLE', style: ButtonStyle.Secondary },
+      { id: '1466296912758968485', label: 'PINK', style: ButtonStyle.Primary },
+      { id: '1463058259266240734', label: 'BROWN', style: ButtonStyle.Secondary }
     ]
   }
 ];
@@ -133,6 +133,8 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
+    // Loop through categories and send embeds
+    let first = true;
     for (const category of roleCategories) {
       const embed = new EmbedBuilder()
         .setTitle(category.title)
@@ -148,7 +150,12 @@ client.on('interactionCreate', async interaction => {
         row.addComponents(button);
       }
 
-      await interaction.reply({ embeds: [embed], components: [row], ephemeral: false });
+      if (first) {
+        await interaction.reply({ embeds: [embed], components: [row], ephemeral: false });
+        first = false;
+      } else {
+        await interaction.followUp({ embeds: [embed], components: [row], ephemeral: false });
+      }
     }
   }
 });
