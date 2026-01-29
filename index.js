@@ -68,10 +68,10 @@ const roleCategories = [
     description: 'If you play videogames, which console(s) do you play on?',
     color: 0xFFA500,
     roles: [
-      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Primary },      // will set to purple
-      { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },
-      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Primary }, // blue
-      { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }
+      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Secondary },      // Purple
+      { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },     // Green
+      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Primary }, // Blue
+      { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger } // Red
     ]
   },
   {
@@ -123,12 +123,16 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
-    // Send role embeds
+    const embeds = [];
+    const rows = [];
+
     for (const category of roleCategories) {
-      const embed = new EmbedBuilder()
-        .setTitle(category.title)
-        .setDescription(category.description)
-        .setColor(category.color);
+      embeds.push(
+        new EmbedBuilder()
+          .setTitle(category.title)
+          .setDescription(category.description)
+          .setColor(category.color)
+      );
 
       const row = new ActionRowBuilder();
       for (const role of category.roles) {
@@ -137,15 +141,16 @@ client.on('interactionCreate', async interaction => {
           .setLabel(role.label)
           .setStyle(role.style);
 
-        // Override colors for PC and Playstation
+        // Override PC and Playstation colors
         if (role.label.includes('PC')) button.setStyle(ButtonStyle.Secondary); // Purple
         if (role.label.includes('PLAYSTATION')) button.setStyle(ButtonStyle.Primary); // Blue
 
         row.addComponents(button);
       }
-
-      await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+      rows.push(row);
     }
+
+    await interaction.reply({ embeds: embeds, components: rows, ephemeral: true });
   }
 });
 
