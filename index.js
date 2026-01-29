@@ -33,7 +33,7 @@ const commands = [
     .setDescription('Sends self-role messages with buttons')
 ].map(cmd => cmd.toJSON());
 
-// 4️⃣ Register commands
+// 4️⃣ Register commands with Discord
 const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
   try {
@@ -68,24 +68,30 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
-    // Each category gets its own embed and button row
-
-    // Gender
+    // ================== Gender ==================
     const genderEmbed = new EmbedBuilder()
-      .setTitle('Male or Female')
-      .setDescription('♂️ Man, ♀️ Female')
-      .setColor(0xFF9900);
+      .setTitle('MALE OR FEMALE')
+      .setDescription('Choose your gender by selecting one of the buttons!')
+      .setColor(0xFFFFFF); // White color
+
     const genderRow = new ActionRowBuilder()
       .addComponents(
-        new ButtonBuilder().setCustomId('role_male').setLabel('♂️ Man').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('role_female').setLabel('♀️ Female').setStyle(ButtonStyle.Primary)
+        new ButtonBuilder()
+          .setCustomId('role_male')
+          .setLabel('♂️MALE')
+          .setStyle(ButtonStyle.Primary), // Blue button
+        new ButtonBuilder()
+          .setCustomId('role_female')
+          .setLabel('♀️FEMALE')
+          .setStyle(ButtonStyle.Danger) // Pink button
       );
 
-    // Interests
+    // ================== Interests ==================
     const interestEmbed = new EmbedBuilder()
       .setTitle('WHAT ARE YOUR INTERESTS?')
       .setDescription('📖 Devotionals, ⛪ Church Without Walls, 🎮 Gaming')
       .setColor(0xFFA500);
+
     const interestRow = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder().setCustomId('role_devotionals').setLabel('📖 Devotionals').setStyle(ButtonStyle.Secondary),
@@ -93,11 +99,12 @@ client.on('interactionCreate', async interaction => {
         new ButtonBuilder().setCustomId('role_gaming').setLabel('🎮 Gaming').setStyle(ButtonStyle.Secondary)
       );
 
-    // Gaming Systems
+    // ================== Gaming Systems ==================
     const gamingEmbed = new EmbedBuilder()
       .setTitle('GAMING SYSTEMS')
       .setDescription('💻 PC, ❎ Xbox, ⭕ Playstation, 🕹️ Nintendo')
       .setColor(0x00FF00);
+
     const gamingRow = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder().setCustomId('role_pc').setLabel('💻 PC').setStyle(ButtonStyle.Success),
@@ -106,22 +113,24 @@ client.on('interactionCreate', async interaction => {
         new ButtonBuilder().setCustomId('role_nintendo').setLabel('🕹️ Nintendo').setStyle(ButtonStyle.Success)
       );
 
-    // FOYER vs FOYAY
+    // ================== FOYER vs FOYAY ==================
     const foyerEmbed = new EmbedBuilder()
       .setTitle('FOYER VS. FOYAY')
       .setDescription('FoYER, FoYAY')
       .setColor(0x0000FF);
+
     const foyerRow = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder().setCustomId('role_foyer').setLabel('FoYER').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('role_foyay').setLabel('FoYAY').setStyle(ButtonStyle.Primary)
       );
 
-    // Color
+    // ================== Pick Your Color ==================
     const colorEmbed = new EmbedBuilder()
       .setTitle('PICK YOUR COLOR')
       .setDescription('Red, Orange, Yellow, Green, Blue, Purple, Pink, Brown')
       .setColor(0xFF69B4);
+
     const colorRow = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder().setCustomId('color_red').setLabel('Red').setStyle(ButtonStyle.Danger),
@@ -134,7 +143,7 @@ client.on('interactionCreate', async interaction => {
         new ButtonBuilder().setCustomId('color_brown').setLabel('Brown').setStyle(ButtonStyle.Secondary)
       );
 
-    // Send each embed as a separate message
+    // ================== Send embeds ==================
     await interaction.reply({ embeds: [genderEmbed], components: [genderRow], ephemeral: true });
     await interaction.followUp({ embeds: [interestEmbed], components: [interestRow], ephemeral: true });
     await interaction.followUp({ embeds: [gamingEmbed], components: [gamingRow], ephemeral: true });
@@ -148,8 +157,8 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
   const roleMap = {
-    role_male: 'ROLE_ID_MALE',
-    role_female: 'ROLE_ID_FEMALE',
+    role_male: '1319394099643809832',     // Men's Group role
+    role_female: '1463018695046725705',   // Women's Group role
     role_devotionals: 'ROLE_ID_DEVOTIONALS',
     role_cwow: 'ROLE_ID_CHURCH_WITHOUT_WALLS',
     role_gaming: 'ROLE_ID_GAMING',
