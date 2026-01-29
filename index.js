@@ -45,7 +45,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 // 5️⃣ Define self-role categories
 const roleCategories = [
   {
-    title: 'MALE OR FEMALE',
+    title: '**MALE OR FEMALE**',
     description: 'Choose your gender by selecting one of the buttons!',
     color: 0xFFFFFF,
     roles: [
@@ -54,7 +54,7 @@ const roleCategories = [
     ]
   },
   {
-    title: 'WHAT ARE YOUR INTERESTS?',
+    title: '**WHAT ARE YOUR INTERESTS?**',
     description: 'Select what you would like to be notified for!',
     color: 0x9702D4,
     roles: [
@@ -64,18 +64,18 @@ const roleCategories = [
     ]
   },
   {
-    title: 'GAMING SYSTEMS',
+    title: '**GAMING SYSTEMS**',
     description: 'If you play videogames, which console(s) do you play on?',
     color: 0xFFA500,
     roles: [
-      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Primary },
+      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Primary },      // will set to purple
       { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Success },
-      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Secondary },
+      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Primary }, // blue
       { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Danger }
     ]
   },
   {
-    title: 'FOYER VS. FOYAY',
+    title: '**FOYER VS. FOYAY**',
     description: 'How should this word be pronounced?',
     color: 0xFFFFFF,
     roles: [
@@ -84,7 +84,7 @@ const roleCategories = [
     ]
   },
   {
-    title: 'PICK YOUR COLOR',
+    title: '**PICK YOUR COLOR**',
     description: 'Red, Orange, Yellow, Green, Blue, Purple, Pink, Brown',
     color: 0xFF69B4,
     roles: [
@@ -123,16 +123,6 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'selfroles') {
-    // Top informational embed (bold style)
-    const infoEmbed = new EmbedBuilder()
-      .setTitle('**Welcome to the #self-roles channel!**')
-      .setDescription(
-        '**Here, you can choose roles to join groups, sign up for notifications, or change your name color!**\nJust click a button and you will be assigned the corresponding role.'
-      )
-      .setColor(0xFFFFFF); // White color to match other role embeds
-
-    await interaction.reply({ embeds: [infoEmbed], ephemeral: true });
-
     // Send role embeds
     for (const category of roleCategories) {
       const embed = new EmbedBuilder()
@@ -147,10 +137,14 @@ client.on('interactionCreate', async interaction => {
           .setLabel(role.label)
           .setStyle(role.style);
 
+        // Override colors for PC and Playstation
+        if (role.label.includes('PC')) button.setStyle(ButtonStyle.Secondary); // Purple
+        if (role.label.includes('PLAYSTATION')) button.setStyle(ButtonStyle.Primary); // Blue
+
         row.addComponents(button);
       }
 
-      await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true });
+      await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
     }
   }
 });
