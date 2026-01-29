@@ -1,4 +1,3 @@
-
 const { 
   Client, 
   GatewayIntentBits, 
@@ -61,30 +60,53 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({
       embeds: [new EmbedBuilder()
         .setTitle('👋 Welcome!')
-        .setDescription('Welcome to the server! We’re happy to have you here 😄')
+        .setDescription('Welcome to the server! We’re so happy to have you here 😄')
         .setColor(0xFF9900)
-        .setFooter({ text: 'Your Brand Name' })
+        .setFooter({ text: 'Destiny Church' })
       ]
     });
   }
 
   if (interaction.commandName === 'selfroles') {
-    // Create buttons for roles
-    const row = new ActionRowBuilder()
+    // Rows for each category of roles
+    const genderRow = new ActionRowBuilder()
       .addComponents(
-        new ButtonBuilder()
-          .setCustomId('role_gamer')
-          .setLabel('Gamer')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId('role_artist')
-          .setLabel('Artist')
-          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('role_male').setLabel('♂️ Man').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('role_female').setLabel('♀️ Female').setStyle(ButtonStyle.Primary),
+      );
+
+    const interestRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder().setCustomId('role_devotionals').setLabel('📖 Devotionals').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('role_cwow').setLabel('⛪ Church Without Walls').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('role_gaming').setLabel('🎮 Gaming').setStyle(ButtonStyle.Secondary),
+      );
+
+    const gamingSystemRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder().setCustomId('role_pc').setLabel('💻 PC').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('role_xbox').setLabel('❎ Xbox').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('role_playstation').setLabel('⭕ Playstation').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('role_nintendo').setLabel('🕹️ Nintendo').setStyle(ButtonStyle.Success),
+      );
+
+    const foyerRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder().setCustomId('role_foyer').setLabel('FoYER').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('role_foyay').setLabel('FoYAY').setStyle(ButtonStyle.Primary),
+      );
+
+    const colorRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder().setCustomId('color_red').setLabel('🔴 Red').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('color_blue').setLabel('🔵 Blue').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('color_green').setLabel('🟢 Green').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('color_yellow').setLabel('🟡 Yellow').setStyle(ButtonStyle.Secondary),
       );
 
     await interaction.reply({
-      content: 'Click a button to get your role!',
-      components: [row],
+      content: 'Select your roles by clicking the buttons below!',
+      components: [genderRow, interestRow, gamingSystemRow, foyerRow, colorRow],
       ephemeral: true
     });
   }
@@ -94,12 +116,26 @@ client.on('interactionCreate', async interaction => {
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
-  let roleId;
+  // Map button IDs to your server role IDs
+  const roleMap = {
+    role_male: 'ROLE_ID_MALE',
+    role_female: 'ROLE_ID_FEMALE',
+    role_devotionals: 'ROLE_ID_DEVOTIONALS',
+    role_cwow: 'ROLE_ID_CHURCH_WITHOUT_WALLS',
+    role_gaming: 'ROLE_ID_GAMING',
+    role_pc: 'ROLE_ID_PC',
+    role_xbox: 'ROLE_ID_XBOX',
+    role_playstation: 'ROLE_ID_PLAYSTATION',
+    role_nintendo: 'ROLE_ID_NINTENDO',
+    role_foyer: 'ROLE_ID_FOYER',
+    role_foyay: 'ROLE_ID_FOYAY',
+    color_red: 'ROLE_ID_RED',
+    color_blue: 'ROLE_ID_BLUE',
+    color_green: 'ROLE_ID_GREEN',
+    color_yellow: 'ROLE_ID_YELLOW'
+  };
 
-  // Map button IDs to actual Discord role IDs
-  if (interaction.customId === 'role_gamer') roleId = 'ROLE_ID_FOR_GAMER';
-  if (interaction.customId === 'role_artist') roleId = 'ROLE_ID_FOR_ARTIST';
-
+  const roleId = roleMap[interaction.customId];
   if (!roleId) return;
 
   try {
