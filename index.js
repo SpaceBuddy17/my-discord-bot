@@ -35,7 +35,7 @@ const rest = new REST({ version: '10' }).setToken(token);
   console.log('✅ Slash commands registered');
 })();
 
-// 5️⃣ Color exclusivity
+// 5️⃣ Color exclusivity (single select)
 const COLOR_ROLE_IDS = [
   '1463058233940901892',
   '1463058244921589770',
@@ -47,15 +47,15 @@ const COLOR_ROLE_IDS = [
   '1463058259266240734'
 ];
 
-// 6️⃣ Role categories (ordered)
+// 6️⃣ Role categories
 const roleCategories = [
   {
     title: 'MALE OR FEMALE',
     description: 'Choose your gender by selecting one of the buttons!',
     color: 0xFFFFFF,
     roles: [
-      { id: '1319394099643809832', label: '♂️ MALE', style: ButtonStyle.Primary, singleSelect: true },
-      { id: '1463018695046725705', label: '♀️ FEMALE', style: ButtonStyle.Danger, singleSelect: true }
+      { id: '1319394099643809832', label: '♂️ MALE', style: ButtonStyle.Primary, singleSelect: true, lock: true },
+      { id: '1463018695046725705', label: '♀️ FEMALE', style: ButtonStyle.Danger, singleSelect: true, lock: true }
     ]
   },
   {
@@ -179,78 +179,69 @@ client.on(Events.InteractionCreate, async interaction => {
   const member = interaction.member;
   const roleId = interaction.customId;
 
-  const singleSelectCategories = [
+  const singleSelectRoles = [
     ...COLOR_ROLE_IDS,
-    '1319394099643809832',
-    '1463018695046725705',
-    '1463044307274694840',
-    '1463044533909717074'
+    '1463044307274694840', // FOYER
+    '1463044533909717074'  // FOYAY
   ];
+  const maleFemaleRoles = ['1319394099643809832','1463018695046725705'];
 
   try {
-    // Single-select: remove previous roles in same category
-    if (singleSelectCategories.includes(roleId)) {
-      // Male/Female: lock permanently
-      if (['1319394099643809832','1463018695046725705'].includes(roleId)) {
-        const other = roleId === '1319394099643809832' ? '1463018695046725705' : '1319394099643809832';
-        if (!member.roles.cache.has(roleId)) await member.roles.add(roleId);
-        if (member.roles.cache.has(other)) await member.roles.remove(other);
+    // Male/Female: lock permanently
+    if (maleFemaleRoles.includes(roleId)) {
+      const other = roleId === maleFemaleRoles[0] ? maleFemaleRoles[1] : maleFemaleRoles[0];
+      if (!member.roles.cache.has(roleId)) await member.roles.add(roleId);
+      if (member.roles.cache.has(other)) await member.roles.remove(other);
 
-        // Disable both buttons
-        const updatedRows = interaction.message.components.map(row => {
-          const newRow = ActionRowBuilder.from(row);
-          newRow.components = newRow.components.map(btn => {
-            if ([roleId, other].includes(btn.customId)) return ButtonBuilder.from(btn).setDisabled(true);
-            return btn;
-          });
-          return newRow;
-        });
-
-        await interaction.update({ components: updatedRows }).catch(() => interaction.deferUpdate());
-        return;
-      }
-
-      // Color & Foyer: single select, greys out selected role
-      for (const catRoleId of singleSelectCategories) {
-        if (member.roles.cache.has(catRoleId)) {
-          await member.roles.remove(catRoleId);
-        }
-      }
-      await member.roles.add(roleId);
-
-      // Update button greyscale
       const updatedRows = interaction.message.components.map(row => {
         const newRow = ActionRowBuilder.from(row);
         newRow.components = newRow.components.map(btn => {
-          return ButtonBuilder.from(btn).setDisabled(btn.customId === roleId);
+          if ([roleId, other].includes(btn.customId)) return ButtonBuilder.from(btn).setDisabled(true);
+          return btn;
+        });
+        return newRow;
+      });
+      return await interaction.update({ components: updatedRows }).catch(() => interaction.deferUpdate());
+    }
+
+    // Single-select (color / foyer)
+    if (singleSelectRoles.includes(roleId)) {
+      // Remove previous selection
+      for (const rId of singleSelectRoles) if (member.roles.cache.has(rId)) await member.roles.remove(rId);
+      await member.roles.add(roleId);
+
+      // Grey out selected, enable others
+      const updatedRows = interaction.message.components.map(row => {
+        const newRow = ActionRowBuilder.from(row);
+        newRow.components = newRow.components.map(btn => {
+          if (btn.customId === roleId) return ButtonBuilder.from(btn).setDisabled(true);
+          return ButtonBuilder.from(btn).setDisabled(false);
         });
         return newRow;
       });
 
-      await interaction.update({ components: updatedRows }).catch(() => interaction.deferUpdate());
-      return;
+      return await interaction.update({ components: updatedRows }).catch(() => interaction.deferUpdate());
     }
 
-    // Multi-select sections (interests, systems, games)
+    // Multi-select (interests, systems, games)
     if (member.roles.cache.has(roleId)) {
       await member.roles.remove(roleId);
     } else {
       await member.roles.add(roleId);
     }
 
-    // Grey out assigned button only
+    // Grey out only if role is assigned
     const updatedRows = interaction.message.components.map(row => {
       const newRow = ActionRowBuilder.from(row);
       newRow.components = newRow.components.map(btn => {
-        if (btn.customId === roleId) {
-          return ButtonBuilder.from(btn).setDisabled(member.roles.cache.has(roleId));
-        }
+        if (btn.customId === roleId) return ButtonBuilder.from(btn).setDisabled(member.roles.cache.has(roleId));
         return btn;
       });
       return newRow;
     });
 
     await interaction.update({ components: updatedRows }).catch(() => interaction.deferUpdate());
+
   } catch (err) {
     console.error(err);
     await interaction.deferUpdate();
