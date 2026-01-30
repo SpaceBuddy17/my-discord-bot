@@ -48,8 +48,8 @@ const COLOR_ROLE_IDS = [
   '1463058251787669577', '1463058240307990548', '1466296912758968485', '1463058259266240734'
 ];
 
-const FoyerIds = ['1463044307274694840', '1463044533909717074'];
 const MaleFemaleIds = ['1319394099643809832', '1463018695046725705'];
+const FoyerIds = ['1463044307274694840', '1463044533909717074'];
 
 // 6️⃣ Role categories (ORDERED)
 const roleCategories = [
@@ -172,21 +172,20 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 });
 
-// 8️⃣ Button handler — MULTI, SINGLE, LOCK
+// 8️⃣ Button handler — MULTI, SINGLE, GREY/UNGREY
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isButton()) return;
 
   const member = interaction.member;
   const roleId = interaction.customId;
 
-  // HELPER: toggle role
   const toggleRole = async id => {
     if (member.roles.cache.has(id)) await member.roles.remove(id);
     else await member.roles.add(id);
   };
 
   try {
-    // ---- Male/Female (lock both)
+    // ---- Male/Female (lock both after selection)
     if (MaleFemaleIds.includes(roleId)) {
       const other = MaleFemaleIds.find(id => id !== roleId);
       await member.roles.remove(other).catch(() => {});
@@ -205,51 +204,34 @@ client.on(Events.InteractionCreate, async interaction => {
       return;
     }
 
-    // ---- Foyer (lock 1 min)
+    // ---- Foyer (single toggle like Pick Your Color)
     if (FoyerIds.includes(roleId)) {
-      const other = FoyerIds.find(id => id !== roleId);
-      await member.roles.add(roleId).catch(() => {});
+      await toggleRole(roleId);
 
-      // grey both initially
-      const newRows = interaction.message.components.map(row => {
+      const updatedRows = interaction.message.components.map(row => {
         const newRow = ActionRowBuilder.from(row);
         newRow.components = newRow.components.map(btn => {
-          if (FoyerIds.includes(btn.data.custom_id)) btn.setDisabled(true);
+          btn.setDisabled(member.roles.cache.has(btn.data.custom_id));
           return btn;
         });
         return newRow;
       });
 
-      await interaction.update({ components: newRows });
-
-      setTimeout(async () => {
-        const updatedRows = interaction.message.components.map(row => {
-          const newRow = ActionRowBuilder.from(row);
-          newRow.components = newRow.components.map(btn => {
-            if (btn.data.custom_id === other) btn.setDisabled(false); // unlock opposite
-            return btn;
-          });
-          return newRow;
-        });
-        await interaction.message.edit({ components: updatedRows });
-      }, 60 * 1000);
-
+      await interaction.update({ components: updatedRows });
       return;
     }
 
-    // ---- Colors (single)
+    // ---- Colors (single toggle)
     if (COLOR_ROLE_IDS.includes(roleId)) {
       for (const id of COLOR_ROLE_IDS) {
         if (member.roles.cache.has(id)) await member.roles.remove(id);
       }
       await member.roles.add(roleId);
 
-      // grey selected only
       const updatedRows = interaction.message.components.map(row => {
         const newRow = ActionRowBuilder.from(row);
         newRow.components = newRow.components.map(btn => {
-          if (btn.data.custom_id === roleId) btn.setDisabled(true);
-          else btn.setDisabled(false);
+          btn.setDisabled(member.roles.cache.has(btn.data.custom_id));
           return btn;
         });
         return newRow;
@@ -261,12 +243,10 @@ client.on(Events.InteractionCreate, async interaction => {
     // ---- Multi-select (Interests, Systems, Games)
     await toggleRole(roleId);
 
-    // grey selected buttons for visual
     const updatedRows = interaction.message.components.map(row => {
       const newRow = ActionRowBuilder.from(row);
       newRow.components = newRow.components.map(btn => {
-        const isSelected = member.roles.cache.has(btn.data.custom_id);
-        btn.setDisabled(isSelected); // grey if selected
+        btn.setDisabled(member.roles.cache.has(btn.data.custom_id));
         return btn;
       });
       return newRow;
