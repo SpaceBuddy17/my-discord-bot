@@ -1,321 +1,240 @@
 const {
   Client,
   GatewayIntentBits,
+  REST,
+  Routes,
   SlashCommandBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  Events,
+  PermissionsBitField,
 } = require("discord.js");
 
+// 1️⃣ Client
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
 
-/* =========================
-   ROLE IDS
-========================= */
+// 2️⃣ Env
+const token = process.env.TOKEN;
+const clientId = process.env.CLIENT_ID;
+const guildId = process.env.GUILD_ID;
 
-// Gender
-const MEN_ROLE = "1319394099643809832";
-const WOMEN_ROLE = "1463018695046725705";
+// 3️⃣ Slash commands
+const commands = [
+  new SlashCommandBuilder()
+    .setName("ping")
+    .setDescription("Replies with Pong!"),
+  new SlashCommandBuilder()
+    .setName("selfroles")
+    .setDescription("Clear and repost self-role panels"),
+].map((c) => c.toJSON());
 
-// Interests
-const INTEREST_ROLES = {
-  DEVOTIONALS: "1466294642139074763",
-  CHURCH: "1466294700507140259",
-  GAMING: "1463018476309577865",
-};
+// 4️⃣ Register commands
+const rest = new REST({ version: "10" }).setToken(token);
+(async () => {
+  await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+    body: commands,
+  });
+  console.log("✅ Slash commands registered");
+})();
 
-// Foyer
-const FOYER_ROLES = {
-  FOYER: "1463044307274694840",
-  FOYAY: "1463044533909717074",
-};
+// 5️⃣ Color exclusivity
+const COLOR_ROLE_IDS = [
+  "1463058233940901892",
+  "1463058244921589770",
+  "1463058237996662950",
+  "1463058235748782256",
+  "1463058251787669577",
+  "1463058240307990548",
+  "1466296912758968485",
+  "1463058259266240734",
+];
 
-// Gaming Systems
-const SYSTEM_ROLES = {
-  PC: "1463017870630981779",
-  XBOX: "1463017911798202368",
-  PLAYSTATION: "1463018307971190928",
-  NINTENDO: "1463017956903616668",
-};
+// 6️⃣ Role categories (ORDERED)
+const roleCategories = [
+  {
+    title: "MALE OR FEMALE",
+    description: "Choose your gender by selecting one of the buttons!",
+    color: 0xffffff,
+    roles: [
+      { id: "1319394099643809832", label: "♂️ MALE", style: ButtonStyle.Primary },
+      { id: "1463018695046725705", label: "♀️ FEMALE", style: ButtonStyle.Danger },
+    ],
+  },
+  {
+    title: "WHAT ARE YOUR INTERESTS?",
+    description: "Select what you would like to be notified for!",
+    color: 0x9702d4,
+    roles: [
+      { id: "1466294642139074763", label: "📖 DEVOTIONALS", style: ButtonStyle.Secondary },
+      { id: "1466294700507140259", label: "⛪ CHURCH WITHOUT WALLS", style: ButtonStyle.Secondary },
+      { id: "1463018476309577865", label: "🎮 GAMING", style: ButtonStyle.Secondary },
+    ],
+  },
+  {
+    title: "FOYER VS. FOYAY",
+    description: "How should this word be pronounced?",
+    color: 0xffffff,
+    roles: [
+      { id: "1463044307274694840", label: "FOYER", style: ButtonStyle.Secondary },
+      { id: "1463044533909717074", label: "FOYAY", style: ButtonStyle.Secondary },
+    ],
+  },
+  {
+    title: "GAMING SYSTEMS",
+    description: "If you play videogames, which console(s) do you play on?",
+    color: 0xffa500,
+    roles: [
+      { id: "1463017870630981779", label: "💻 PC", style: ButtonStyle.Secondary },
+      { id: "1463017911798202368", label: "❎ XBOX", style: ButtonStyle.Secondary },
+      { id: "1463018307971190928", label: "⭕ PLAYSTATION", style: ButtonStyle.Secondary },
+      { id: "1463017956903616668", label: "🕹️ NINTENDO", style: ButtonStyle.Secondary },
+    ],
+  },
+  {
+    title: "GAMES",
+    description: "Which games do you own that you would like to play with others?",
+    color: 0xffa500,
+    roles: [
+      { id: "1463054662574932039", label: "🌎 HECKDIVER", style: ButtonStyle.Secondary },
+      { id: "1463054757882101881", label: "🪂 COD NOOB", style: ButtonStyle.Secondary },
+      { id: "1463055675100758183", label: "🆘 DAYZ SURVIVOR", style: ButtonStyle.Secondary },
+    ],
+  },
+  {
+    title: "PICK YOUR COLOR",
+    description: "Choose how your name appears!",
+    color: 0xffffff,
+    roles: [
+      { id: "1463058233940901892", label: "🔴 RED", style: ButtonStyle.Secondary },
+      { id: "1463058244921589770", label: "🟠 ORANGE", style: ButtonStyle.Secondary },
+      { id: "1463058237996662950", label: "🟡 YELLOW", style: ButtonStyle.Secondary },
+      { id: "1463058235748782256", label: "🟢 GREEN", style: ButtonStyle.Secondary },
+      { id: "1463058251787669577", label: "🔵 BLUE", style: ButtonStyle.Secondary },
+      { id: "1463058240307990548", label: "🟣 PURPLE", style: ButtonStyle.Secondary },
+      { id: "1466296912758968485", label: "🎀 PINK", style: ButtonStyle.Secondary },
+      { id: "1463058259266240734", label: "🟤 BROWN", style: ButtonStyle.Secondary },
+    ],
+  },
+];
 
-// Games
-const GAME_ROLES = {
-  HELLDIVER: "1463054662574932039",
-  COD: "1463054757882101881",
-  DAYZ: "1463055675100758183",
-};
-
-// Colors (single select)
-const COLOR_ROLES = {
-  RED: "1463058233940901892",
-  ORANGE: "1463058244921589770",
-  YELLOW: "1463058237996662950",
-  GREEN: "1463058235748782256",
-  BLUE: "1463058251787669577",
-  PURPLE: "1463058240307990548",
-  PINK: "1466296912758968485",
-  BROWN: "1463058259266240734",
-};
-
-/* =========================
-   SLASH COMMAND
-========================= */
-
-client.once(Events.ClientReady, () => {
-  console.log(`Logged in as ${client.user.tag}`);
-});
-
-client.on(Events.InteractionCreate, async (interaction) => {
+// 7️⃣ Slash handler — CLEAR & REPOST
+client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== "selfroles") return;
 
-  const channel = interaction.channel;
+  if (interaction.commandName === "selfroles") {
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      return interaction.reply({ content: "Admins only.", ephemeral: true });
+    }
 
-  /* -------- INTRO EMBED -------- */
-  const introEmbed = new EmbedBuilder()
-    .setColor("White")
-    .setDescription(
-      "**Welcome to the #self-roles channel! Here, you can choose roles to join groups, sign up for notifications, or change your name color! Just click a button and you will be assigned the corresponding role.**"
-    );
+    await interaction.reply({ content: "♻️ Clearing and reposting self-roles…", ephemeral: true });
 
-  /* -------- MALE / FEMALE -------- */
-  const genderEmbed = new EmbedBuilder()
-    .setTitle("MALE OR FEMALE")
-    .setColor("White")
-    .setDescription("Choose your gender by selecting one of the buttons!");
+    const messages = await interaction.channel.messages.fetch({ limit: 100 });
+    const botMessages = messages.filter((m) => m.author.id === client.user.id);
+    for (const msg of botMessages.values()) {
+      await msg.delete().catch(() => {});
+    }
 
-  const genderRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("gender_male")
-      .setLabel("♂️ MALE")
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId("gender_female")
-      .setLabel("♀️ FEMALE")
-      .setStyle(ButtonStyle.Danger)
-  );
+    // ✅ INTRO EMBED (ALL BOLD)
+    const introEmbed = new EmbedBuilder()
+      .setTitle("WELCOME TO #SELF-ROLES")
+      .setDescription(
+        "**Choose roles to join groups, receive notifications, or change your name color. Click a button below to assign yourself a role!**"
+      )
+      .setColor(0xffffff);
 
-  /* -------- INTERESTS -------- */
-  const interestsEmbed = new EmbedBuilder()
-    .setTitle("WHAT ARE YOUR INTERESTS?")
-    .setColor("#9702D4")
-    .setDescription("Select what you would like to be notified for!");
+    await interaction.channel.send({ embeds: [introEmbed] });
 
-  const interestsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("interest_devotionals")
-      .setLabel("📖 DEVOTIONALS")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("interest_church")
-      .setLabel("⛪ CHURCH WITHOUT WALLS")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("interest_gaming")
-      .setLabel("🎮 GAMING")
-      .setStyle(ButtonStyle.Secondary)
-  );
+    for (const category of roleCategories) {
+      const embed = new EmbedBuilder()
+        .setTitle(category.title)
+        .setDescription(category.description)
+        .setColor(category.color);
 
-  /* -------- FOYER -------- */
-  const foyerEmbed = new EmbedBuilder()
-    .setTitle("FOYER VS FOYAY")
-    .setColor("White")
-    .setDescription("How should this word be pronounced?");
+      const rows = [];
+      let row = new ActionRowBuilder();
 
-  const foyerRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("foyer_foyer")
-      .setLabel("FOYER")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("foyer_foyay")
-      .setLabel("FOYAY")
-      .setStyle(ButtonStyle.Secondary)
-  );
+      for (const role of category.roles) {
+        if (row.components.length === 5) {
+          rows.push(row);
+          row = new ActionRowBuilder();
+        }
 
-  /* -------- SYSTEMS -------- */
-  const systemsEmbed = new EmbedBuilder()
-    .setTitle("GAMING SYSTEMS")
-    .setColor("Orange")
-    .setDescription(
-      "If you play videogames, which console(s) do you play on?"
-    );
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(role.id)
+            .setLabel(role.label)
+            .setStyle(role.style)
+        );
+      }
 
-  const systemsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("system_pc")
-      .setLabel("💻 PC")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("system_xbox")
-      .setLabel("❎ XBOX")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId("system_playstation")
-      .setLabel("⭕ PLAYSTATION")
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId("system_nintendo")
-      .setLabel("🕹️ NINTENDO")
-      .setStyle(ButtonStyle.Danger)
-  );
+      if (row.components.length) rows.push(row);
 
-  /* -------- GAMES -------- */
-  const gamesEmbed = new EmbedBuilder()
-    .setTitle("GAMES")
-    .setColor("Orange")
-    .setDescription(
-      "Which games do you own that you would like to play with others?"
-    );
-
-  const gamesRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("game_helldiver")
-      .setLabel("🌎 HELLDIVER")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("game_cod")
-      .setLabel("🪂 COD NOOB")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("game_dayz")
-      .setLabel("🆘 DAYZ SURVIVOR")
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  /* -------- COLORS -------- */
-  const colorsEmbed = new EmbedBuilder()
-    .setTitle("PICK YOUR COLOR")
-    .setColor("White");
-
-  const colorsRow1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("color_red")
-      .setLabel("🔴 RED")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("color_orange")
-      .setLabel("🟠 ORANGE")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("color_yellow")
-      .setLabel("🟡 YELLOW")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("color_green")
-      .setLabel("🟢 GREEN")
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  const colorsRow2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("color_blue")
-      .setLabel("🔵 BLUE")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("color_purple")
-      .setLabel("🟣 PURPLE")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("color_pink")
-      .setLabel("🎀 PINK")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("color_brown")
-      .setLabel("🟤 BROWN")
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  /* -------- SEND EVERYTHING -------- */
-  await channel.send({ embeds: [introEmbed] });
-  await channel.send({ embeds: [genderEmbed], components: [genderRow] });
-  await channel.send({ embeds: [interestsEmbed], components: [interestsRow] });
-  await channel.send({ embeds: [foyerEmbed], components: [foyerRow] });
-  await channel.send({ embeds: [systemsEmbed], components: [systemsRow] });
-  await channel.send({ embeds: [gamesEmbed], components: [gamesRow] });
-  await channel.send({
-    embeds: [colorsEmbed],
-    components: [colorsRow1, colorsRow2],
-  });
-
-  await interaction.reply({
-    content: "✅ Self-roles have been posted!",
-    ephemeral: true,
-  });
+      await interaction.channel.send({ embeds: [embed], components: rows });
+    }
+  }
 });
 
-/* =========================
-   BUTTON HANDLER
-========================= */
-
-client.on(Events.InteractionCreate, async (interaction) => {
+// 8️⃣ Button handler — multi/single select & toggle grey
+client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
-
   const member = interaction.member;
+  const roleId = interaction.customId;
 
-  const addRemove = async (roleId) => {
-    if (member.roles.cache.has(roleId)) {
-      await member.roles.remove(roleId);
-    } else {
+  try {
+    const newComponents = interaction.message.components.map((row) => {
+      const newRow = ActionRowBuilder.from(row);
+      newRow.components = newRow.components.map((btn) => {
+        const button = ButtonBuilder.from(btn);
+
+        // Toggle disabled grey
+        if (button.data.custom_id === roleId) {
+          button.setDisabled(!button.data.disabled);
+        }
+
+        return button;
+      });
+      return newRow;
+    });
+
+    // Handle colors (single select)
+    if (COLOR_ROLE_IDS.includes(roleId)) {
+      for (const id of COLOR_ROLE_IDS) {
+        if (member.roles.cache.has(id)) await member.roles.remove(id);
+      }
       await member.roles.add(roleId);
-    }
-  };
-
-  /* Gender (single) */
-  if (interaction.customId === "gender_male") {
-    await member.roles.remove(WOMEN_ROLE);
-    await member.roles.add(MEN_ROLE);
-  }
-
-  if (interaction.customId === "gender_female") {
-    await member.roles.remove(MEN_ROLE);
-    await member.roles.add(WOMEN_ROLE);
-  }
-
-  /* Interests */
-  if (interaction.customId === "interest_devotionals")
-    await addRemove(INTEREST_ROLES.DEVOTIONALS);
-  if (interaction.customId === "interest_church")
-    await addRemove(INTEREST_ROLES.CHURCH);
-  if (interaction.customId === "interest_gaming")
-    await addRemove(INTEREST_ROLES.GAMING);
-
-  /* Systems */
-  if (interaction.customId === "system_pc")
-    await addRemove(SYSTEM_ROLES.PC);
-  if (interaction.customId === "system_xbox")
-    await addRemove(SYSTEM_ROLES.XBOX);
-  if (interaction.customId === "system_playstation")
-    await addRemove(SYSTEM_ROLES.PLAYSTATION);
-  if (interaction.customId === "system_nintendo")
-    await addRemove(SYSTEM_ROLES.NINTENDO);
-
-  /* Games */
-  if (interaction.customId === "game_helldiver")
-    await addRemove(GAME_ROLES.HELLDIVER);
-  if (interaction.customId === "game_cod")
-    await addRemove(GAME_ROLES.COD);
-  if (interaction.customId === "game_dayz")
-    await addRemove(GAME_ROLES.DAYZ);
-
-  /* Colors (single select) */
-  if (interaction.customId.startsWith("color_")) {
-    for (const role of Object.values(COLOR_ROLES)) {
-      if (member.roles.cache.has(role)) {
-        await member.roles.remove(role);
+    } else {
+      // Other multi-select roles
+      if (member.roles.cache.has(roleId)) {
+        await member.roles.remove(roleId);
+      } else {
+        await member.roles.add(roleId);
       }
     }
-    const colorKey = interaction.customId.split("_")[1].toUpperCase();
-    await member.roles.add(COLOR_ROLES[colorKey]);
-  }
 
-  await interaction.reply({ content: "✅ Role updated!", ephemeral: true });
+    // Foyer unlock after 5 mins
+    if (roleCategories.find((c) => c.title === "FOYER VS. FOYAY").roles.some((r) => r.id === roleId)) {
+      setTimeout(async () => {
+        const unlockedComponents = interaction.message.components.map((row) => {
+          const newRow = ActionRowBuilder.from(row);
+          newRow.components = newRow.components.map((btn) => ButtonBuilder.from(btn).setDisabled(false));
+          return newRow;
+        });
+        await interaction.message.edit({ components: unlockedComponents });
+      }, 5 * 60 * 1000); // 5 minutes
+    }
+
+    await interaction.update({ components: newComponents });
+  } catch (err) {
+    console.error(err);
+    await interaction.reply({ content: "Role update failed.", ephemeral: true });
+  }
 });
 
-/* ========================= */
-
-client.login(process.env.DISCORD_TOKEN);
+// 9️⃣ Login
+client.once("ready", () => {
+  console.log(`🤖 Logged in as ${client.user.tag}`);
+});
+client.login(token);
