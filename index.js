@@ -1,48 +1,55 @@
-const { 
-  Client, 
-  GatewayIntentBits, 
-  REST, 
-  Routes, 
-  SlashCommandBuilder, 
-  ActionRowBuilder, 
-  ButtonBuilder, 
-  ButtonStyle, 
-  EmbedBuilder 
+const {
+  Client,
+  GatewayIntentBits,
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  PermissionsBitField
 } = require('discord.js');
 
-// 1️⃣ Create bot client
-const client = new Client({ 
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] 
+// 1️⃣ Client
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
-// 2️⃣ Config from Railway environment variables
+// 2️⃣ Env
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 const guildId = process.env.GUILD_ID;
 
-// 3️⃣ Define slash commands
+// 3️⃣ Slash commands
 const commands = [
   new SlashCommandBuilder().setName('ping').setDescription('Replies with Pong!'),
-  new SlashCommandBuilder().setName('welcome').setDescription('Sends a branded welcome message'),
-  new SlashCommandBuilder().setName('selfroles').setDescription('Sends self-role messages with buttons')
-].map(cmd => cmd.toJSON());
+  new SlashCommandBuilder().setName('selfroles').setDescription('Post self-role panels')
+].map(c => c.toJSON());
 
-// 4️⃣ Register commands with Discord
+// 4️⃣ Register commands
 const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
-  try {
-    console.log('🔁 Registering slash commands...');
-    await rest.put(
-      Routes.applicationGuildCommands(clientId, guildId),
-      { body: commands }
-    );
-    console.log('✅ Slash commands registered successfully!');
-  } catch (error) {
-    console.error(error);
-  }
+  await rest.put(
+    Routes.applicationGuildCommands(clientId, guildId),
+    { body: commands }
+  );
+  console.log('✅ Commands registered');
 })();
 
-// 5️⃣ Define self-role categories
+// 5️⃣ Color role exclusivity list
+const COLOR_ROLE_IDS = [
+  '1463058233940901892', // Red
+  '1463058244921589770', // Orange
+  '1463058237996662950', // Yellow
+  '1463058235748782256', // Green
+  '1463058251787669577', // Blue
+  '1463058240307990548', // Purple
+  '1466296912758968485', // Pink
+  '1463058259266240734'  // Brown
+];
+
+// 6️⃣ Role categories
 const roleCategories = [
   {
     title: 'MALE OR FEMALE',
@@ -86,7 +93,7 @@ const roleCategories = [
   {
     title: 'GAMES',
     description: 'Which games do you own that you would like to play with others?',
-    color: 0xFFFFFF,
+    color: 0xAAAAAA,
     roles: [
       { id: '1463054662574932039', label: '🌎 HECKDIVER', style: ButtonStyle.Secondary },
       { id: '1463054757882101881', label: '🪂 COD NOOB', style: ButtonStyle.Secondary },
@@ -95,8 +102,8 @@ const roleCategories = [
   },
   {
     title: 'PICK YOUR COLOR',
-    description: 'Choose your display color!',
-    color: 0xFF69B4,
+    description: 'Choose how your name appears!',
+    color: 0xFFFFFF,
     roles: [
       { id: '1463058233940901892', label: '🔴 RED', style: ButtonStyle.Secondary },
       { id: '1463058244921589770', label: '🟠 ORANGE', style: ButtonStyle.Secondary },
@@ -110,80 +117,93 @@ const roleCategories = [
   }
 ];
 
-// 6️⃣ Handle slash commands
+// 7️⃣ Slash command handler
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isCommand()) return;
+  if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'ping') {
-    await interaction.reply('Pong!');
-    return;
-  }
-
-  if (interaction.commandName === 'welcome') {
-    await interaction.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle('👋 Welcome!')
-          .setDescription('Welcome to the server! We’re so happy to have you here 😄')
-          .setColor(0xFF9900)
-          .setFooter({ text: 'Destiny Church' })
-      ]
-    });
-    return;
+    return interaction.reply('Pong!');
   }
 
   if (interaction.commandName === 'selfroles') {
-    // Top informational embed
-    const infoEmbed = new EmbedBuilder()
-      .setTitle('**Welcome to the #self-roles channel!**')
-      .setDescription(
-        'Here, you can choose roles to join groups, sign up for notifications, or change your name color! Just click a button and you will be assigned the corresponding role.'
-      )
-      .setColor(0xFFFFFF); // white for info
-    await interaction.reply({ embeds: [infoEmbed], ephemeral: false });
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      return interaction.reply({ content: 'Admins only.', ephemeral: true });
+    }
 
-    // Send role embeds
+    await interaction.reply({ content: 'Posting self-roles…', ephemeral: true });
+
     for (const category of roleCategories) {
       const embed = new EmbedBuilder()
         .setTitle(category.title)
         .setDescription(category.description)
         .setColor(category.color);
 
-      const row = new ActionRowBuilder();
-      for (const role of category.roles) {
-        const button = new ButtonBuilder()
-          .setCustomId(role.id)
-          .setLabel(role.label)
-          .setStyle(role.style);
+      const rows = [];
+      let row = new ActionRowBuilder();
 
-        row.addComponents(button);
+      for (const role of category.roles) {
+        if (row.components.length === 5) {
+          rows.push(row);
+          row = new ActionRowBuilder();
+        }
+
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(role.id)
+            .setLabel(role.label)
+            .setStyle(role.style)
+        );
       }
 
-      await interaction.followUp({ embeds: [embed], components: [row], ephemeral: false });
+      if (row.components.length) rows.push(row);
+
+      await interaction.channel.send({ embeds: [embed], components: rows });
     }
   }
 });
 
-// 7️⃣ Handle button interactions
+// 8️⃣ Button handler (LOCKS BUTTONS AFTER CLICK)
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
+  const member = interaction.member;
   const roleId = interaction.customId;
+
   try {
-    const member = interaction.guild.members.cache.get(interaction.user.id);
+    // Color role exclusivity
+    if (COLOR_ROLE_IDS.includes(roleId)) {
+      for (const colorId of COLOR_ROLE_IDS) {
+        if (member.roles.cache.has(colorId)) {
+          await member.roles.remove(colorId);
+        }
+      }
+    }
+
     if (member.roles.cache.has(roleId)) {
       await member.roles.remove(roleId);
-      await interaction.reply({ content: 'Role removed!', ephemeral: true });
     } else {
       await member.roles.add(roleId);
-      await interaction.reply({ content: 'Role added!', ephemeral: true });
     }
+
+    // 🔒 Disable buttons on this message
+    const disabledRows = interaction.message.components.map(row => {
+      const newRow = ActionRowBuilder.from(row);
+      newRow.components = newRow.components.map(button =>
+        ButtonBuilder.from(button).setDisabled(true)
+      );
+      return newRow;
+    });
+
+    await interaction.update({ components: disabledRows });
+
   } catch (err) {
     console.error(err);
-    await interaction.reply({ content: 'Failed to assign role.', ephemeral: true });
+    await interaction.reply({ content: 'Role update failed.', ephemeral: true });
   }
 });
 
-// 8️⃣ Log bot in
-client.once('ready', () => console.log(`Logged in as ${client.user.tag}`));
+// 9️⃣ Login
+client.once('ready', () => {
+  console.log(`🤖 Logged in as ${client.user.tag}`);
+});
 client.login(token);
