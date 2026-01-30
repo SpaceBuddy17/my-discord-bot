@@ -53,7 +53,7 @@ const COLOR_ROLE_IDS = [
   '1463058259266240734'
 ];
 
-// 6️⃣ Role categories (ORDER FIXED)
+// 6️⃣ Role categories (ORDERED)
 const roleCategories = [
   {
     title: 'MALE OR FEMALE',
@@ -97,7 +97,7 @@ const roleCategories = [
   {
     title: 'GAMES',
     description: 'Which games do you own that you would like to play with others?',
-    color: 0xAAAAAA,
+    color: 0xFFA500, // ✅ ORANGE
     roles: [
       { id: '1463054662574932039', label: '🌎 HECKDIVER', style: ButtonStyle.Secondary },
       { id: '1463054757882101881', label: '🪂 COD NOOB', style: ButtonStyle.Secondary },
@@ -132,24 +132,22 @@ client.on('interactionCreate', async interaction => {
 
     await interaction.reply({ content: '♻️ Clearing and reposting self-roles…', ephemeral: true });
 
-    // 🔥 CLEAR BOT MESSAGES
     const messages = await interaction.channel.messages.fetch({ limit: 100 });
     const botMessages = messages.filter(m => m.author.id === client.user.id);
     for (const msg of botMessages.values()) {
       await msg.delete().catch(() => {});
     }
 
-    // ✅ INTRO EMBED
+    // ✅ INTRO EMBED (ALL BOLD)
     const introEmbed = new EmbedBuilder()
       .setTitle('WELCOME TO #SELF-ROLES')
       .setDescription(
-        '**Choose roles to join groups, receive notifications, or change your name color.**\n\nClick a button below to assign yourself a role!'
+        '**Choose roles to join groups, receive notifications, or change your name color. Click a button below to assign yourself a role!**'
       )
       .setColor(0xFFFFFF);
 
     await interaction.channel.send({ embeds: [introEmbed] });
 
-    // 🔁 POST ROLE PANELS
     for (const category of roleCategories) {
       const embed = new EmbedBuilder()
         .setTitle(category.title)
