@@ -23,8 +23,12 @@ const guildId = process.env.GUILD_ID;
 
 // 3️⃣ Slash commands
 const commands = [
-  new SlashCommandBuilder().setName('ping').setDescription('Replies with Pong!'),
-  new SlashCommandBuilder().setName('selfroles').setDescription('Post self-role panels')
+  new SlashCommandBuilder()
+    .setName('ping')
+    .setDescription('Replies with Pong!'),
+  new SlashCommandBuilder()
+    .setName('selfroles')
+    .setDescription('Clear and repost self-role panels')
 ].map(c => c.toJSON());
 
 // 4️⃣ Register commands
@@ -34,22 +38,22 @@ const rest = new REST({ version: '10' }).setToken(token);
     Routes.applicationGuildCommands(clientId, guildId),
     { body: commands }
   );
-  console.log('✅ Commands registered');
+  console.log('✅ Slash commands registered');
 })();
 
-// 5️⃣ Color role exclusivity list
+// 5️⃣ Color exclusivity
 const COLOR_ROLE_IDS = [
-  '1463058233940901892', // Red
-  '1463058244921589770', // Orange
-  '1463058237996662950', // Yellow
-  '1463058235748782256', // Green
-  '1463058251787669577', // Blue
-  '1463058240307990548', // Purple
-  '1466296912758968485', // Pink
-  '1463058259266240734'  // Brown
+  '1463058233940901892',
+  '1463058244921589770',
+  '1463058237996662950',
+  '1463058235748782256',
+  '1463058251787669577',
+  '1463058240307990548',
+  '1466296912758968485',
+  '1463058259266240734'
 ];
 
-// 6️⃣ Role categories
+// 6️⃣ Role categories (ORDER FIXED)
 const roleCategories = [
   {
     title: 'MALE OR FEMALE',
@@ -117,21 +121,35 @@ const roleCategories = [
   }
 ];
 
-// 7️⃣ Slash command handler
+// 7️⃣ Slash handler — CLEAR & REPOST
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-
-  if (interaction.commandName === 'ping') {
-    return interaction.reply('Pong!');
-  }
 
   if (interaction.commandName === 'selfroles') {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       return interaction.reply({ content: 'Admins only.', ephemeral: true });
     }
 
-    await interaction.reply({ content: 'Posting self-roles…', ephemeral: true });
+    await interaction.reply({ content: '♻️ Clearing and reposting self-roles…', ephemeral: true });
 
+    // 🔥 CLEAR BOT MESSAGES
+    const messages = await interaction.channel.messages.fetch({ limit: 100 });
+    const botMessages = messages.filter(m => m.author.id === client.user.id);
+    for (const msg of botMessages.values()) {
+      await msg.delete().catch(() => {});
+    }
+
+    // ✅ INTRO EMBED
+    const introEmbed = new EmbedBuilder()
+      .setTitle('WELCOME TO #SELF-ROLES')
+      .setDescription(
+        '**Choose roles to join groups, receive notifications, or change your name color.**\n\nClick a button below to assign yourself a role!'
+      )
+      .setColor(0xFFFFFF);
+
+    await interaction.channel.send({ embeds: [introEmbed] });
+
+    // 🔁 POST ROLE PANELS
     for (const category of roleCategories) {
       const embed = new EmbedBuilder()
         .setTitle(category.title)
@@ -162,7 +180,7 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// 8️⃣ Button handler (LOCKS BUTTONS AFTER CLICK)
+// 8️⃣ Button handler — lock after click
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
@@ -170,11 +188,10 @@ client.on('interactionCreate', async interaction => {
   const roleId = interaction.customId;
 
   try {
-    // Color role exclusivity
     if (COLOR_ROLE_IDS.includes(roleId)) {
-      for (const colorId of COLOR_ROLE_IDS) {
-        if (member.roles.cache.has(colorId)) {
-          await member.roles.remove(colorId);
+      for (const id of COLOR_ROLE_IDS) {
+        if (member.roles.cache.has(id)) {
+          await member.roles.remove(id);
         }
       }
     }
@@ -185,17 +202,15 @@ client.on('interactionCreate', async interaction => {
       await member.roles.add(roleId);
     }
 
-    // 🔒 Disable buttons on this message
     const disabledRows = interaction.message.components.map(row => {
       const newRow = ActionRowBuilder.from(row);
-      newRow.components = newRow.components.map(button =>
-        ButtonBuilder.from(button).setDisabled(true)
+      newRow.components = newRow.components.map(btn =>
+        ButtonBuilder.from(btn).setDisabled(true)
       );
       return newRow;
     });
 
     await interaction.update({ components: disabledRows });
-
   } catch (err) {
     console.error(err);
     await interaction.reply({ content: 'Role update failed.', ephemeral: true });
