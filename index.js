@@ -8,7 +8,8 @@ const {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  PermissionsBitField
+  PermissionsBitField,
+  Events
 } = require('discord.js');
 
 // 1️⃣ Client
@@ -41,28 +42,29 @@ const rest = new REST({ version: '10' }).setToken(token);
   console.log('✅ Slash commands registered');
 })();
 
-// 5️⃣ Color exclusivity
+// 5️⃣ Role IDs
 const COLOR_ROLE_IDS = [
-  '1463058233940901892',
-  '1463058244921589770',
-  '1463058237996662950',
-  '1463058235748782256',
-  '1463058251787669577',
-  '1463058240307990548',
-  '1466296912758968485',
-  '1463058259266240734'
+  '1463058233940901892', // RED
+  '1463058244921589770', // ORANGE
+  '1463058237996662950', // YELLOW
+  '1463058235748782256', // GREEN
+  '1463058251787669577', // BLUE
+  '1463058240307990548', // PURPLE
+  '1466296912758968485', // PINK
+  '1463058259266240734'  // BROWN
 ];
 
-// 6️⃣ Role categories (ORDERED)
+// 6️⃣ Role categories
 const roleCategories = [
   {
     title: 'MALE OR FEMALE',
     description: 'Choose your gender by selecting one of the buttons!',
     color: 0xFFFFFF,
     singleSelect: true,
+    lockOnSelect: true, // locks permanently after selection
     roles: [
-      { id: '1319394099643809832', label: '♂️ MALE', style: ButtonStyle.Primary },
-      { id: '1463018695046725705', label: '♀️ FEMALE', style: ButtonStyle.Danger }
+      { id: '1319394099643809832', label: '♂️ MALE' },
+      { id: '1463018695046725705', label: '♀️ FEMALE' }
     ]
   },
   {
@@ -71,9 +73,9 @@ const roleCategories = [
     color: 0x9702D4,
     multiSelect: true,
     roles: [
-      { id: '1466294642139074763', label: '📖 DEVOTIONALS', style: ButtonStyle.Secondary },
-      { id: '1466294700507140259', label: '⛪ CHURCH WITHOUT WALLS', style: ButtonStyle.Secondary },
-      { id: '1463018476309577865', label: '🎮 GAMING', style: ButtonStyle.Secondary }
+      { id: '1466294642139074763', label: '📖 DEVOTIONALS' },
+      { id: '1466294700507140259', label: '⛪ CHURCH WITHOUT WALLS' },
+      { id: '1463018476309577865', label: '🎮 GAMING' }
     ]
   },
   {
@@ -82,8 +84,8 @@ const roleCategories = [
     color: 0xFFFFFF,
     singleSelect: true,
     roles: [
-      { id: '1463044307274694840', label: 'FOYER', style: ButtonStyle.Secondary },
-      { id: '1463044533909717074', label: 'FOYAY', style: ButtonStyle.Secondary }
+      { id: '1463044307274694840', label: 'FOYER' },
+      { id: '1463044533909717074', label: 'FOYAY' }
     ]
   },
   {
@@ -92,10 +94,10 @@ const roleCategories = [
     color: 0xFFA500,
     multiSelect: true,
     roles: [
-      { id: '1463017870630981779', label: '💻 PC', style: ButtonStyle.Secondary },
-      { id: '1463017911798202368', label: '❎ XBOX', style: ButtonStyle.Secondary },
-      { id: '1463018307971190928', label: '⭕ PLAYSTATION', style: ButtonStyle.Secondary },
-      { id: '1463017956903616668', label: '🕹️ NINTENDO', style: ButtonStyle.Secondary }
+      { id: '1463017870630981779', label: '💻 PC' },
+      { id: '1463017911798202368', label: '❎ XBOX' },
+      { id: '1463018307971190928', label: '⭕ PLAYSTATION' },
+      { id: '1463017956903616668', label: '🕹️ NINTENDO' }
     ]
   },
   {
@@ -104,9 +106,9 @@ const roleCategories = [
     color: 0xFFA500,
     multiSelect: true,
     roles: [
-      { id: '1463054662574932039', label: '🌎 HECKDIVER', style: ButtonStyle.Secondary },
-      { id: '1463054757882101881', label: '🪂 COD NOOB', style: ButtonStyle.Secondary },
-      { id: '1463055675100758183', label: '🆘 DAYZ SURVIVOR', style: ButtonStyle.Secondary }
+      { id: '1463054662574932039', label: '🌎 HECKDIVER' },
+      { id: '1463054757882101881', label: '🪂 COD NOOB' },
+      { id: '1463055675100758183', label: '🆘 DAYZ SURVIVOR' }
     ]
   },
   {
@@ -115,19 +117,19 @@ const roleCategories = [
     color: 0xFFFFFF,
     singleSelect: true,
     roles: [
-      { id: '1463058233940901892', label: '🔴 RED', style: ButtonStyle.Secondary },
-      { id: '1463058244921589770', label: '🟠 ORANGE', style: ButtonStyle.Secondary },
-      { id: '1463058237996662950', label: '🟡 YELLOW', style: ButtonStyle.Secondary },
-      { id: '1463058235748782256', label: '🟢 GREEN', style: ButtonStyle.Secondary },
-      { id: '1463058251787669577', label: '🔵 BLUE', style: ButtonStyle.Secondary },
-      { id: '1463058240307990548', label: '🟣 PURPLE', style: ButtonStyle.Secondary },
-      { id: '1466296912758968485', label: '🎀 PINK', style: ButtonStyle.Secondary },
-      { id: '1463058259266240734', label: '🟤 BROWN', style: ButtonStyle.Secondary }
+      { id: '1463058233940901892', label: '🔴 RED' },
+      { id: '1463058244921589770', label: '🟠 ORANGE' },
+      { id: '1463058237996662950', label: '🟡 YELLOW' },
+      { id: '1463058235748782256', label: '🟢 GREEN' },
+      { id: '1463058251787669577', label: '🔵 BLUE' },
+      { id: '1463058240307990548', label: '🟣 PURPLE' },
+      { id: '1466296912758968485', label: '🎀 PINK' },
+      { id: '1463058259266240734', label: '🟤 BROWN' }
     ]
   }
 ];
 
-// 7️⃣ Slash handler — CLEAR & REPOST
+// 7️⃣ Slash handler — Clear & Repost
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -138,13 +140,14 @@ client.on('interactionCreate', async interaction => {
 
     await interaction.reply({ content: '♻️ Clearing and reposting self-roles…', ephemeral: true });
 
+    // Delete previous bot messages
     const messages = await interaction.channel.messages.fetch({ limit: 100 });
     const botMessages = messages.filter(m => m.author.id === client.user.id);
     for (const msg of botMessages.values()) {
       await msg.delete().catch(() => {});
     }
 
-    // ✅ INTRO EMBED
+    // Intro embed
     const introEmbed = new EmbedBuilder()
       .setTitle('WELCOME TO #SELF-ROLES')
       .setDescription(
@@ -154,6 +157,7 @@ client.on('interactionCreate', async interaction => {
 
     await interaction.channel.send({ embeds: [introEmbed] });
 
+    // Post role embeds
     for (const category of roleCategories) {
       const embed = new EmbedBuilder()
         .setTitle(category.title)
@@ -173,68 +177,86 @@ client.on('interactionCreate', async interaction => {
           new ButtonBuilder()
             .setCustomId(role.id)
             .setLabel(role.label)
-            .setStyle(role.style)
+            .setStyle(ButtonStyle.Secondary)
         );
       }
-
       if (row.components.length) rows.push(row);
 
       await interaction.channel.send({ embeds: [embed], components: rows });
     }
+
+    await interaction.followUp({ content: '✅ Self-roles posted!', ephemeral: true });
   }
 });
 
-// 8️⃣ Button handler — updated for greyed out & single/multi select
+// 8️⃣ Button handler — full logic with checkmarks & greyed out
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
-
   const member = interaction.member;
   const roleId = interaction.customId;
 
-  const findCategory = roleCategories.find(cat => cat.roles.some(r => r.id === roleId));
-  if (!findCategory) return;
+  // Find category
+  const category = roleCategories.find(cat => cat.roles.some(r => r.id === roleId));
+  if (!category) return;
 
   try {
-    // SINGLE-SELECT (Pick Color, Foyer vs Foyay)
-    if (findCategory.singleSelect) {
-      for (const r of findCategory.roles) {
+    const roleObj = category.roles.find(r => r.id === roleId);
+    if (!roleObj) return;
+
+    // SINGLE-SELECT LOGIC
+    if (category.singleSelect) {
+      // Male/Female lock permanently
+      if (category.lockOnSelect) {
+        if (!member.roles.cache.has(roleId)) await member.roles.add(roleId);
+
+        // Disable buttons permanently
+        const newComponents = interaction.message.components.map(row => {
+          const newRow = ActionRowBuilder.from(row);
+          newRow.components = newRow.components.map(btn =>
+            ButtonBuilder.from(btn).setDisabled(true)
+          );
+          return newRow;
+        });
+
+        await interaction.update({ components: newComponents });
+        return;
+      }
+
+      // Foyer & Pick Color: remove previous role if selecting new one
+      for (const r of category.roles) {
         if (r.id !== roleId && member.roles.cache.has(r.id)) {
           await member.roles.remove(r.id);
         }
       }
-      if (!member.roles.cache.has(roleId)) {
-        await member.roles.add(roleId);
-      } else {
-        // allow deselect
-        await member.roles.remove(roleId);
-      }
-    }
-    // MULTI-SELECT (Interests, Gaming Systems, Games)
-    else if (findCategory.multiSelect) {
-      if (member.roles.cache.has(roleId)) {
-        await member.roles.remove(roleId);
-      } else {
-        await member.roles.add(roleId);
-      }
+
+      if (!member.roles.cache.has(roleId)) await member.roles.add(roleId);
+      else await member.roles.remove(roleId); // deselect if clicked again
     }
 
-    // Update buttons: show ✅ for assigned roles, greyed out but still selectable
-    const newComponents = interaction.message.components.map(row => {
+    // MULTI-SELECT LOGIC (interests, systems, games)
+    else if (category.multiSelect) {
+      if (member.roles.cache.has(roleId)) await member.roles.remove(roleId);
+      else await member.roles.add(roleId);
+    }
+
+    // Update button styles with ✅ checkmarks
+    const updatedComponents = interaction.message.components.map(row => {
       const newRow = ActionRowBuilder.from(row);
       newRow.components = newRow.components.map(btn => {
         const assigned = member.roles.cache.has(btn.customId);
+        const showCheckmark = assigned ? '✅ ' : '';
         return ButtonBuilder.from(btn)
-          .setDisabled(false)
-          .setLabel(assigned ? `✅ ${btn.label.replace(/^✅ /, '')}` : btn.label.replace(/^✅ /, ''));
+          .setStyle(ButtonStyle.Secondary)
+          .setLabel(showCheckmark + btn.label.replace(/^✅ /, ''));
       });
       return newRow;
     });
 
-    await interaction.update({ components: newComponents });
+    await interaction.update({ components: updatedComponents });
 
   } catch (err) {
-    console.error(err);
-    await interaction.reply({ content: 'Role update failed.', ephemeral: true });
+    console.error('Role update failed:', err);
+    await interaction.reply({ content: '❌ Role update failed. Check bot permissions and role hierarchy.', ephemeral: true });
   }
 });
 
@@ -243,3 +265,4 @@ client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 });
 client.login(token);
+
