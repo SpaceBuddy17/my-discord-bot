@@ -49,6 +49,11 @@ function saveLastVideoId(id) {
   fs.writeFileSync(LAST_VIDEO_FILE, JSON.stringify({ lastVideoId: id }));
 }
 
+// Helper to fix || in titles
+function sanitizeTitle(title) {
+  return title.replace(/\|\|/g, '\u200B||\u200B');
+}
+
 // Slash commands
 const commands = [
   new SlashCommandBuilder()
@@ -93,12 +98,15 @@ client.on(Events.InteractionCreate, async interaction => {
       thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
     };
 
+    // Sanitize title
+    const safeTitle = sanitizeTitle(latestVideo.title);
+
     // Ping role at top
     await channel.send({ content: rolePing });
 
     const youtubeEmbed = {
       color: 0xFF0000, // YouTube red
-      title: latestVideo.title,
+      title: safeTitle,
       url: latestVideo.link, // clickable title
       description: "📢 New video uploaded! Go check it out!",
       image: { url: latestVideo.thumbnail }, // large image
@@ -165,9 +173,11 @@ async function checkYouTube() {
       const rolePing = `<@&${MEDIA_ROLE_ID}>`;
       await channel.send({ content: rolePing });
 
+      const safeTitle = sanitizeTitle(latest.title);
+
       const youtubeEmbed = {
         color: 0xFF0000,
-        title: latest.title,
+        title: safeTitle,
         url: latest.link,
         description: "📢 New video uploaded! Go check it out!",
         image: { url: latest['media:group']['media:thumbnail']['$'].url },
@@ -194,3 +204,4 @@ client.once(Events.ClientReady, () => {
 });
 
 client.login(token);
+
