@@ -49,11 +49,6 @@ function saveLastVideoId(id) {
   fs.writeFileSync(LAST_VIDEO_FILE, JSON.stringify({ lastVideoId: id }));
 }
 
-// Helper to fix || in titles
-function sanitizeTitle(title) {
-  return title.replace(/\|\|/g, '\u200B||\u200B');
-}
-
 // Slash commands
 const commands = [
   new SlashCommandBuilder()
@@ -90,23 +85,15 @@ client.on(Events.InteractionCreate, async interaction => {
     const channel = client.channels.cache.get(YOUTUBE_DISCORD_CHANNEL_ID);
     if (!channel) return interaction.reply({ content: 'Channel not found.', ephemeral: true });
 
-    const rolePing = `<@&${MEDIA_ROLE_ID}>`;
-
     const latestVideo = {
       title: "The Holy Who wk4 || 11.23.25 || Pastor Terry Jimmerson",
       link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
     };
 
-    // Sanitize title
-    const safeTitle = sanitizeTitle(latestVideo.title);
-
-    // Ping role at top
-    await channel.send({ content: rolePing });
-
     const youtubeEmbed = {
       color: 0xFF0000, // YouTube red
-      title: safeTitle,
+      title: latestVideo.title,
       url: latestVideo.link, // clickable title
       description: "📢 New video uploaded! Go check it out!",
       image: { url: latestVideo.thumbnail }, // large image
@@ -117,7 +104,12 @@ client.on(Events.InteractionCreate, async interaction => {
       timestamp: new Date()
     };
 
+    // Send embed first
     await channel.send({ embeds: [youtubeEmbed] });
+
+    // Then ping @Media in a separate message
+    await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
+
     await interaction.reply({ content: '✅ Test YouTube message sent!', ephemeral: true });
   }
 });
@@ -150,10 +142,11 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
       timestamp: new Date()
     };
 
-    channel.send({
-      content: `<@${newMember.id}>`,
-      embeds: [welcomeEmbed]
-    });
+    // Send embed first
+    await channel.send({ embeds: [welcomeEmbed] });
+
+    // Then ping user in separate message
+    await channel.send({ content: `<@${newMember.id}>` });
   }
 });
 
@@ -170,14 +163,9 @@ async function checkYouTube() {
       const channel = client.channels.cache.get(YOUTUBE_DISCORD_CHANNEL_ID);
       if (!channel) return;
 
-      const rolePing = `<@&${MEDIA_ROLE_ID}>`;
-      await channel.send({ content: rolePing });
-
-      const safeTitle = sanitizeTitle(latest.title);
-
       const youtubeEmbed = {
         color: 0xFF0000,
-        title: safeTitle,
+        title: latest.title,
         url: latest.link,
         description: "📢 New video uploaded! Go check it out!",
         image: { url: latest['media:group']['media:thumbnail']['$'].url },
@@ -188,7 +176,11 @@ async function checkYouTube() {
         timestamp: new Date()
       };
 
+      // Send embed first
       await channel.send({ embeds: [youtubeEmbed] });
+
+      // Then ping @Media in a separate message
+      await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
     }
   } catch (err) {
     console.error('Error checking YouTube feed:', err);
@@ -204,4 +196,3 @@ client.once(Events.ClientReady, () => {
 });
 
 client.login(token);
-
