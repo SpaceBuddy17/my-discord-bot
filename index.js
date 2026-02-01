@@ -35,7 +35,10 @@ let lastVideoId = null; // Tracks last posted video
 const commands = [
   new SlashCommandBuilder()
     .setName('ping')
-    .setDescription('Replies with Pong!')
+    .setDescription('Replies with Pong!'),
+  new SlashCommandBuilder()
+    .setName('testyoutube')
+    .setDescription('Send a test YouTube notification message')
 ].map(c => c.toJSON());
 
 // Register commands
@@ -59,6 +62,43 @@ client.on(Events.InteractionCreate, async interaction => {
   if (interaction.commandName === 'ping') {
     await interaction.reply('🏓 Pong!');
   }
+
+  if (interaction.commandName === 'testyoutube') {
+    const channel = client.channels.cache.get(YOUTUBE_DISCORD_CHANNEL_ID);
+    if (!channel) return interaction.reply({ content: 'Channel not found.', ephemeral: true });
+
+    const rolePing = `<@&${MEDIA_ROLE_ID}>`;
+
+    // Simulated video
+    const latestVideo = {
+      title: "Test Video Title",
+      link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
+    };
+
+    // Send ping above embed
+    await channel.send({
+      content: `${rolePing}, we just posted a new video! Check it out: ${latestVideo.link}`
+    });
+
+    // Send embed
+    const youtubeEmbed = {
+      color: 0xFF0000, // YouTube red
+      title: latestVideo.title,
+      url: latestVideo.link,
+      description: "📢 New video uploaded!",
+      thumbnail: { url: latestVideo.thumbnail },
+      footer: {
+        text: "Destiny Church",
+        icon_url: channel.guild.iconURL({ dynamic: true })
+      },
+      timestamp: new Date()
+    };
+
+    await channel.send({ embeds: [youtubeEmbed] });
+
+    await interaction.reply({ content: '✅ Test YouTube message sent!', ephemeral: true });
+  }
 });
 
 // 🔔 Welcome message after Verified role is assigned
@@ -79,7 +119,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
 
     const welcomeEmbed = {
       color: 0xFFFFFF, // White
-      title: `👋 Welcome to ${newMember.guild.name}, ${newMember.displayName}!`,
+      title: `Welcome to ${newMember.guild.name}, ${newMember.displayName}!`,
       description: randomEnding,
       thumbnail: { url: newMember.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
       footer: {
@@ -97,7 +137,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   }
 });
 
-// 📢 YouTube Upload Notifications with Red Embed and Notification Message
+// 📢 YouTube Upload Notifications
 async function checkYouTube() {
   try {
     const feed = await parser.parseURL(`https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`);
