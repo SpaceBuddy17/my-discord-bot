@@ -94,9 +94,9 @@ client.on(Events.InteractionCreate, async interaction => {
     const youtubeEmbed = {
       color: 0xFF0000, // YouTube red
       title: latestVideo.title,
-      url: latestVideo.link, // clickable title
+      url: latestVideo.link,
       description: "📢 New video uploaded! Go check it out!",
-      image: { url: latestVideo.thumbnail }, // large image
+      image: { url: latestVideo.thumbnail },
       footer: {
         text: "Destiny Church YouTube",
         icon_url: channel.guild.iconURL({ dynamic: true })
@@ -131,7 +131,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     const randomEnding = welcomeEndings[Math.floor(Math.random() * welcomeEndings.length)];
 
     const welcomeEmbed = {
-      color: 0xFFFFFF, // White
+      color: 0xFFFFFF,
       title: `Welcome to ${newMember.guild.name}, ${newMember.displayName}!`,
       description: randomEnding,
       thumbnail: { url: newMember.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
@@ -187,12 +187,15 @@ async function checkYouTube() {
   }
 }
 
-// Check YouTube every 5 minutes
-setInterval(checkYouTube, 5 * 60 * 1000);
-
-// Ready
-client.once(Events.ClientReady, () => {
+// Run immediately on bot start
+client.once(Events.ClientReady, async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
+
+  // Check YouTube immediately
+  await checkYouTube();
+
+  // Then continue checking every 5 minutes
+  setInterval(checkYouTube, 5 * 60 * 1000);
 });
 
 client.login(token);
