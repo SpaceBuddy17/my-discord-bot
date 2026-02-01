@@ -6,7 +6,7 @@ const {
   REST,
   Routes
 } = require('discord.js');
-const Parser = require('rss-parser'); // RSS parser for YouTube feeds
+const Parser = require('rss-parser');
 
 const client = new Client({
   intents: [
@@ -24,12 +24,12 @@ const guildId = process.env.GUILD_ID;
 const WELCOME_CHANNEL_ID = '1135971664132313243';
 const VERIFIED_ROLE_ID = '1137122628801405018';
 const YOUTUBE_DISCORD_CHANNEL_ID = '1135971664132313240'; // Channel for YouTube updates
-const MEDIA_ROLE_ID = 'YOUR_MEDIA_ROLE_ID_HERE'; // Replace with your @media role ID
+const MEDIA_ROLE_ID = '1467324932965929033'; // @media role
 
 // YouTube channel
-const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA'; // Destiny Church YouTube
+const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
 const parser = new Parser();
-let lastVideoId = null; // Tracks last posted video
+let lastVideoId = null;
 
 // Slash commands
 const commands = [
@@ -69,27 +69,26 @@ client.on(Events.InteractionCreate, async interaction => {
 
     const rolePing = `<@&${MEDIA_ROLE_ID}>`;
 
-    // Simulated video
     const latestVideo = {
       title: "Test Video Title",
       link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
     };
 
-    // Send ping above embed
+    // Send role ping above embed
     await channel.send({
-      content: `${rolePing}, we just posted a new video! Check it out: ${latestVideo.link}`
+      content: `${rolePing}, we just posted a new video!`
     });
 
-    // Send embed
+    // Embed with improved full-width layout
     const youtubeEmbed = {
       color: 0xFF0000, // YouTube red
       title: latestVideo.title,
-      url: latestVideo.link,
-      description: "📢 New video uploaded!",
-      thumbnail: { url: latestVideo.thumbnail },
+      url: latestVideo.link, // clickable title
+      description: "📢 New video uploaded!\n\u200B", // zero-width space for padding
+      image: { url: latestVideo.thumbnail }, // large image below description
       footer: {
-        text: "Destiny Church",
+        text: "Destiny Church YouTube",
         icon_url: channel.guild.iconURL({ dynamic: true })
       },
       timestamp: new Date()
@@ -101,7 +100,7 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 });
 
-// 🔔 Welcome message after Verified role is assigned
+// Welcome message after Verified role is assigned
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
   if (!channel) return;
@@ -129,7 +128,6 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
       timestamp: new Date()
     };
 
-    // Embed first, ping underneath
     channel.send({
       content: `<@${newMember.id}>`,
       embeds: [welcomeEmbed]
@@ -137,7 +135,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   }
 });
 
-// 📢 YouTube Upload Notifications
+// YouTube Upload Notifications
 async function checkYouTube() {
   try {
     const feed = await parser.parseURL(`https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`);
@@ -150,21 +148,19 @@ async function checkYouTube() {
       const channel = client.channels.cache.get(YOUTUBE_DISCORD_CHANNEL_ID);
       if (!channel) return;
 
-      // Notification message above the embed
-      const rolePing = `<@&${MEDIA_ROLE_ID}>`; 
+      const rolePing = `<@&${MEDIA_ROLE_ID}>`;
       await channel.send({
-        content: `${rolePing}, we just posted a new video! Check it out: ${latest.link}`
+        content: `${rolePing}, we just posted a new video!`
       });
 
-      // Embed with YouTube red color, thumbnail, clickable title
       const youtubeEmbed = {
-        color: 0xFF0000, // YouTube red
+        color: 0xFF0000,
         title: latest.title,
-        url: latest.link, // Makes title clickable
-        description: "📢 New video uploaded!",
-        thumbnail: { url: latest['media:group']['media:thumbnail']['$'].url },
+        url: latest.link,
+        description: "📢 New video uploaded!\n\u200B",
+        image: { url: latest['media:group']['media:thumbnail']['$'].url },
         footer: {
-          text: "Destiny Church",
+          text: "Destiny Church YouTube",
           icon_url: client.guilds.cache.get(guildId)?.iconURL({ dynamic: true }) || undefined
         },
         timestamp: new Date()
@@ -180,7 +176,7 @@ async function checkYouTube() {
 // Check YouTube every 5 minutes
 setInterval(checkYouTube, 5 * 60 * 1000);
 
-// Ready event
+// Ready
 client.once(Events.ClientReady, () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 });
