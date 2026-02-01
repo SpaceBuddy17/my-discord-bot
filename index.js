@@ -7,6 +7,7 @@ const {
   Routes
 } = require('discord.js');
 const Parser = require('rss-parser');
+const fs = require('fs');
 
 const client = new Client({
   intents: [
@@ -23,13 +24,30 @@ const guildId = process.env.GUILD_ID;
 // Channels & roles
 const WELCOME_CHANNEL_ID = '1135971664132313243';
 const VERIFIED_ROLE_ID = '1137122628801405018';
-const YOUTUBE_DISCORD_CHANNEL_ID = '1135971664132313240'; // Channel for YouTube updates
-const MEDIA_ROLE_ID = '1467324932965929033'; // @media role
+const YOUTUBE_DISCORD_CHANNEL_ID = '1135971664132313240';
+const MEDIA_ROLE_ID = '1467324932965929033';
 
 // YouTube channel
 const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
 const parser = new Parser();
+
+// Persistent last video ID
+const LAST_VIDEO_FILE = './lastVideoId.json';
 let lastVideoId = null;
+
+if (fs.existsSync(LAST_VIDEO_FILE)) {
+  try {
+    const data = fs.readFileSync(LAST_VIDEO_FILE, 'utf8');
+    lastVideoId = JSON.parse(data).lastVideoId;
+  } catch (err) {
+    console.error('Failed to read lastVideoId.json', err);
+  }
+}
+
+function saveLastVideoId(id) {
+  lastVideoId = id;
+  fs.writeFileSync(LAST_VIDEO_FILE, JSON.stringify({ lastVideoId: id }));
+}
 
 // Slash commands
 const commands = [
@@ -70,23 +88,20 @@ client.on(Events.InteractionCreate, async interaction => {
     const rolePing = `<@&${MEDIA_ROLE_ID}>`;
 
     const latestVideo = {
-      title: "Test Video Title",
+      title: "The Holy Who wk4 || 11.23.25 || Pastor Terry Jimmerson",
       link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
     };
 
-    // Send role ping above embed
-    await channel.send({
-      content: `${rolePing}, we just posted a new video!`
-    });
+    // Ping role at top
+    await channel.send({ content: rolePing });
 
-    // Embed with improved full-width layout
     const youtubeEmbed = {
       color: 0xFF0000, // YouTube red
       title: latestVideo.title,
       url: latestVideo.link, // clickable title
-      description: "📢 New video uploaded!\n\u200B", // zero-width space for padding
-      image: { url: latestVideo.thumbnail }, // large image below description
+      description: "📢 New video uploaded! Go check it out!",
+      image: { url: latestVideo.thumbnail }, // large image
       footer: {
         text: "Destiny Church YouTube",
         icon_url: channel.guild.iconURL({ dynamic: true })
@@ -95,7 +110,6 @@ client.on(Events.InteractionCreate, async interaction => {
     };
 
     await channel.send({ embeds: [youtubeEmbed] });
-
     await interaction.reply({ content: '✅ Test YouTube message sent!', ephemeral: true });
   }
 });
@@ -143,21 +157,19 @@ async function checkYouTube() {
     if (!latest) return;
 
     if (latest.id !== lastVideoId) {
-      lastVideoId = latest.id;
+      saveLastVideoId(latest.id);
 
       const channel = client.channels.cache.get(YOUTUBE_DISCORD_CHANNEL_ID);
       if (!channel) return;
 
       const rolePing = `<@&${MEDIA_ROLE_ID}>`;
-      await channel.send({
-        content: `${rolePing}, we just posted a new video!`
-      });
+      await channel.send({ content: rolePing });
 
       const youtubeEmbed = {
         color: 0xFF0000,
         title: latest.title,
         url: latest.link,
-        description: "📢 New video uploaded!\n\u200B",
+        description: "📢 New video uploaded! Go check it out!",
         image: { url: latest['media:group']['media:thumbnail']['$'].url },
         footer: {
           text: "Destiny Church YouTube",
