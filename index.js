@@ -53,7 +53,7 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 });
 
-// 🔔 Welcome message after Verified role is assigned with random messages
+// 🔔 Welcome message after Verified role is assigned with cohesive random messages
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
   if (!channel) return;
@@ -64,21 +64,20 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     newMember.roles.cache.has(VERIFIED_ROLE_ID)
   ) {
 
-    // Random welcome messages
-    const welcomeMessages = [
-      "👋 Welcome to {guild}, {user}! We’re thrilled to have you here!",
-      "Hey {user}, welcome to {guild}! Jump in and say hi!",
-      "{user}, welcome to {guild}! Glad you joined our community!"
+    // Random welcome sentence endings
+    const welcomeEndings = [
+      "We’re thrilled to have you in our community!",
+      "Feel free to jump in and say hi to everyone!",
+      "Glad you joined us — we hope you enjoy your time here!"
     ];
 
-    const randomMessage = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
-    const content = randomMessage
-      .replace("{user}", `<@${newMember.id}>`)
-      .replace("{guild}", newMember.guild.name);
+    const randomEnding = welcomeEndings[Math.floor(Math.random() * welcomeEndings.length)];
 
-    // Embed with avatar, white color, footer, timestamp
+    // Embed with cohesive greeting
     const welcomeEmbed = {
       color: 0xFFFFFF, // White
+      title: `👋 Welcome to ${newMember.guild.name}, ${newMember.displayName}!`,
+      description: randomEnding,
       thumbnail: { url: newMember.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
       footer: {
         text: newMember.guild.name,
@@ -87,7 +86,11 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
       timestamp: new Date()
     };
 
-    channel.send({ content, embeds: [welcomeEmbed] });
+    // Send embed first, ping underneath
+    channel.send({
+      content: `<@${newMember.id}>`, // Ping appears below embed
+      embeds: [welcomeEmbed]
+    });
   }
 });
 
