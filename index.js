@@ -53,22 +53,30 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 });
 
-// 🔔 Welcome message on join (embed + avatar + Verified role check)
-client.on(Events.GuildMemberAdd, async member => {
-  // Only continue if the member has the Verified role
-  if (!member.roles.cache.has(VERIFIED_ROLE_ID)) return;
-
-  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+// 🔔 Welcome message after Verified role is assigned
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+  const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
   if (!channel) return;
 
-  const welcomeEmbed = {
-    color: 0xFFFFFF, // White
-    title: `👋 Welcome to ${member.guild.name}, ${member.displayName}!`,
-    description: `We’re glad you’re here — feel free to jump in and say hi!`,
-    thumbnail: { url: member.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
-  };
+  // Only trigger if the Verified role was just added
+  if (
+    !oldMember.roles.cache.has(VERIFIED_ROLE_ID) &&
+    newMember.roles.cache.has(VERIFIED_ROLE_ID)
+  ) {
+    const welcomeEmbed = {
+      color: 0xFFFFFF, // White
+      title: `👋 Welcome to ${newMember.guild.name}, ${newMember}!`,
+      description: `We’re glad you’re here — feel free to jump in and say hi!`,
+      thumbnail: { url: newMember.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
+      footer: {
+        text: newMember.guild.name,
+        icon_url: newMember.guild.iconURL({ dynamic: true })
+      },
+      timestamp: new Date()
+    };
 
-  channel.send({ embeds: [welcomeEmbed] });
+    channel.send({ embeds: [welcomeEmbed] });
+  }
 });
 
 // Ready event
