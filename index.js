@@ -36,8 +36,8 @@ const MEDIA_ROLE_ID = '1467324932965929033';
 
 const parser = new Parser();
 
-// BotPost allowed role
-const BOTPOST_ROLE_ID = '1318997119566090270';
+// BotPost allowed roles (2 roles)
+const BOTPOST_ROLES = ['1318997119566090270', '1136004041395159140'];
 
 /* ======================
    LAST VIDEO TRACKING
@@ -121,10 +121,10 @@ client.on(Events.InteractionCreate, async interaction => {
     });
   }
 
-  // botpost role check
+  // botpost role check (now 2 roles)
   if (
     interaction.commandName === 'botpost' &&
-    !interaction.member.roles.cache.has(BOTPOST_ROLE_ID)
+    !BOTPOST_ROLES.some(roleId => interaction.member.roles.cache.has(roleId))
   ) {
     return interaction.reply({
       content: '❌ You do not have permission to use this command.',
@@ -278,4 +278,3 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.login(token);
- 
