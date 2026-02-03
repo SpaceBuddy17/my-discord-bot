@@ -4,7 +4,8 @@ const {
   SlashCommandBuilder,
   Events,
   REST,
-  Routes
+  Routes,
+  PermissionsBitField
 } = require('discord.js');
 const Parser = require('rss-parser');
 const fs = require('fs');
@@ -71,7 +72,11 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('testyoutube')
-    .setDescription('Send a test YouTube notification')
+    .setDescription('Send a test YouTube notification'),
+
+  new SlashCommandBuilder()
+    .setName('forceyoutube')
+    .setDescription('Force post the most recent YouTube upload')
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);
@@ -91,6 +96,17 @@ const rest = new REST({ version: '10' }).setToken(token);
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
+  // Admin guard for force command
+  if (
+    interaction.commandName === 'forceyoutube' &&
+    !interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)
+  ) {
+    return interaction.reply({
+      content: '❌ Admins only.',
+      ephemeral: true
+    });
+  }
+
   if (interaction.commandName === 'ping') {
     return interaction.reply('🏓 Pong!');
   }
@@ -101,7 +117,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
     const embed = {
       color: 0xFF0000,
-      title: "The Holy Who wk4 || 11.23.25 || Pastor Terry Jimmerson",
+      title: "The Holy Who wk4 [11.23.25] Pastor Terry Jimmerson",
       url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       description: "📢 New video uploaded! Go check it out!",
       image: {
@@ -113,7 +129,16 @@ client.on(Events.InteractionCreate, async interaction => {
     await channel.send({ embeds: [embed] });
     await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
 
-    return interaction.reply({ content: '✅ Test message sent', ephemeral: true });
+    return interaction.reply({
+      content: '✅ Test YouTube message sent.',
+      ephemeral: true
+    });
+  }
+
+  if (interaction.commandName === 'forceyoutube') {
+    await interaction.deferReply({ ephemeral: true });
+    await checkYouTube(true);
+    return interaction.editReply('✅ Forced YouTube check complete.');
   }
 });
 
@@ -151,10 +176,10 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
 });
 
 /* ======================
-   YOUTUBE CHECK (VOD SAFE)
+   YOUTUBE CHECK
 ====================== */
 
-async function checkYouTube() {
+async function checkYouTube(force = false) {
   try {
     const feed = await parser.parseURL(
       `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`
@@ -165,8 +190,7 @@ async function checkYouTube() {
 
     const published = new Date(latest.pubDate).getTime();
 
-    // Only trigger when a NEW publish date appears
-    if (!lastVideoDate || published > lastVideoDate) {
+    if (force || !lastVideoDate || published > lastVideoDate) {
       saveLastVideoDate(published);
 
       const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
@@ -202,7 +226,7 @@ client.once(Events.ClientReady, async () => {
   await checkYouTube();
 
   // Repeat every 5 minutes
-  setInterval(checkYouTube, 5 * 60 * 1000);
+  setInterval(() => checkYouTube(), 5 * 60 * 1000);
 });
 
 client.login(token);
