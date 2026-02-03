@@ -16,185 +16,192 @@ const client = new Client({
   ]
 });
 
-// Environment variables
+/* ======================
+   ENV / CONFIG
+====================== */
+
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 const guildId = process.env.GUILD_ID;
 
-// Channels & roles
+// Welcome system
 const WELCOME_CHANNEL_ID = '1135971664132313243';
 const VERIFIED_ROLE_ID = '1137122628801405018';
-const YOUTUBE_DISCORD_CHANNEL_ID = '1135971664132313240';
+
+// YouTube system
+const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
+const YOUTUBE_POST_CHANNEL_ID = '1135971664132313240';
 const MEDIA_ROLE_ID = '1467324932965929033';
 
-// YouTube channel
-const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
 const parser = new Parser();
 
-// Persistent last video ID
-const LAST_VIDEO_FILE = './lastVideoId.json';
-let lastVideoId = null;
+/* ======================
+   LAST VIDEO TRACKING
+   (date-based for VODs)
+====================== */
+
+const LAST_VIDEO_FILE = './lastVideoDate.json';
+let lastVideoDate = null;
 
 if (fs.existsSync(LAST_VIDEO_FILE)) {
   try {
-    const data = fs.readFileSync(LAST_VIDEO_FILE, 'utf8');
-    lastVideoId = JSON.parse(data).lastVideoId;
+    const data = JSON.parse(fs.readFileSync(LAST_VIDEO_FILE, 'utf8'));
+    lastVideoDate = data.lastVideoDate;
   } catch (err) {
-    console.error('Failed to read lastVideoId.json', err);
+    console.error('Failed to read lastVideoDate.json', err);
   }
 }
 
-function saveLastVideoId(id) {
-  lastVideoId = id;
-  fs.writeFileSync(LAST_VIDEO_FILE, JSON.stringify({ lastVideoId: id }));
+function saveLastVideoDate(date) {
+  lastVideoDate = date;
+  fs.writeFileSync(
+    LAST_VIDEO_FILE,
+    JSON.stringify({ lastVideoDate: date })
+  );
 }
 
-// Slash commands
+/* ======================
+   SLASH COMMANDS
+====================== */
+
 const commands = [
   new SlashCommandBuilder()
     .setName('ping')
     .setDescription('Replies with Pong!'),
+
   new SlashCommandBuilder()
     .setName('testyoutube')
-    .setDescription('Send a test YouTube notification message')
-].map(c => c.toJSON());
+    .setDescription('Send a test YouTube notification')
+].map(cmd => cmd.toJSON());
 
-// Register commands
 const rest = new REST({ version: '10' }).setToken(token);
+
 (async () => {
-  try {
-    await rest.put(
-      Routes.applicationGuildCommands(clientId, guildId),
-      { body: commands }
-    );
-    console.log('✅ Slash commands registered');
-  } catch (err) {
-    console.error('❌ Failed to register commands', err);
-  }
+  await rest.put(
+    Routes.applicationGuildCommands(clientId, guildId),
+    { body: commands }
+  );
+  console.log('✅ Slash commands registered');
 })();
 
-// Slash command handler
+/* ======================
+   SLASH HANDLER
+====================== */
+
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'ping') {
-    await interaction.reply('🏓 Pong!');
+    return interaction.reply('🏓 Pong!');
   }
 
   if (interaction.commandName === 'testyoutube') {
-    const channel = client.channels.cache.get(YOUTUBE_DISCORD_CHANNEL_ID);
-    if (!channel) return interaction.reply({ content: 'Channel not found.', ephemeral: true });
+    const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
+    if (!channel) return;
 
-    const latestVideo = {
+    const embed = {
+      color: 0xFF0000,
       title: "The Holy Who wk4 || 11.23.25 || Pastor Terry Jimmerson",
-      link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
-    };
-
-    const youtubeEmbed = {
-      color: 0xFF0000, // YouTube red
-      title: latestVideo.title,
-      url: latestVideo.link,
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       description: "📢 New video uploaded! Go check it out!",
-      image: { url: latestVideo.thumbnail },
-      footer: {
-        text: "Destiny Church YouTube",
-        icon_url: channel.guild.iconURL({ dynamic: true })
+      image: {
+        url: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
       },
       timestamp: new Date()
     };
 
-    // Send embed first
-    await channel.send({ embeds: [youtubeEmbed] });
-
-    // Then ping @Media in a separate message
+    await channel.send({ embeds: [embed] });
     await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
 
-    await interaction.reply({ content: '✅ Test YouTube message sent!', ephemeral: true });
+    return interaction.reply({ content: '✅ Test message sent', ephemeral: true });
   }
 });
 
-// Welcome message after Verified role is assigned
-client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-  const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
-  if (!channel) return;
+/* ======================
+   WELCOME MESSAGE
+====================== */
 
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   if (
     !oldMember.roles.cache.has(VERIFIED_ROLE_ID) &&
     newMember.roles.cache.has(VERIFIED_ROLE_ID)
   ) {
-    const welcomeEndings = [
-      "We’re thrilled to have you in our community!",
-      "Feel free to jump in and say hi to everyone!",
-      "Glad you joined us — we hope you enjoy your time here!"
-    ];
-    const randomEnding = welcomeEndings[Math.floor(Math.random() * welcomeEndings.length)];
+    const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+    if (!channel) return;
 
-    const welcomeEmbed = {
+    const endings = [
+      "We’re glad you’re here!",
+      "Feel free to jump in and say hello!",
+      "Welcome — we’re happy you joined us!"
+    ];
+
+    const embed = {
       color: 0xFFFFFF,
-      title: `Welcome to ${newMember.guild.name}, ${newMember.displayName}!`,
-      description: randomEnding,
-      thumbnail: { url: newMember.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
-      footer: {
-        text: newMember.guild.name,
-        icon_url: newMember.guild.iconURL({ dynamic: true })
+      title: `Welcome to ${newMember.guild.name}!`,
+      description: endings[Math.floor(Math.random() * endings.length)],
+      thumbnail: {
+        url: newMember.user.displayAvatarURL({ size: 1024, dynamic: true })
       },
       timestamp: new Date()
     };
 
-    // Send embed first
-    await channel.send({ embeds: [welcomeEmbed] });
-
-    // Then ping user in separate message
+    await channel.send({ embeds: [embed] });
     await channel.send({ content: `<@${newMember.id}>` });
   }
 });
 
-// YouTube Upload Notifications
+/* ======================
+   YOUTUBE CHECK (VOD SAFE)
+====================== */
+
 async function checkYouTube() {
   try {
-    const feed = await parser.parseURL(`https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`);
+    const feed = await parser.parseURL(
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`
+    );
+
     const latest = feed.items[0];
-    if (!latest) return;
+    if (!latest || !latest.pubDate) return;
 
-    if (latest.id !== lastVideoId) {
-      saveLastVideoId(latest.id);
+    const published = new Date(latest.pubDate).getTime();
 
-      const channel = client.channels.cache.get(YOUTUBE_DISCORD_CHANNEL_ID);
+    // Only trigger when a NEW publish date appears
+    if (!lastVideoDate || published > lastVideoDate) {
+      saveLastVideoDate(published);
+
+      const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
       if (!channel) return;
 
-      const youtubeEmbed = {
+      const embed = {
         color: 0xFF0000,
         title: latest.title,
         url: latest.link,
         description: "📢 New video uploaded! Go check it out!",
-        image: { url: latest['media:group']['media:thumbnail']['$'].url },
-        footer: {
-          text: "Destiny Church YouTube",
-          icon_url: client.guilds.cache.get(guildId)?.iconURL({ dynamic: true }) || undefined
+        image: {
+          url: latest['media:group']['media:thumbnail']['$'].url
         },
         timestamp: new Date()
       };
 
-      // Send embed first
-      await channel.send({ embeds: [youtubeEmbed] });
-
-      // Then ping @Media in a separate message
+      await channel.send({ embeds: [embed] });
       await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
     }
   } catch (err) {
-    console.error('Error checking YouTube feed:', err);
+    console.error('YouTube check failed:', err);
   }
 }
 
-// Run immediately on bot start
+/* ======================
+   READY
+====================== */
+
 client.once(Events.ClientReady, async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 
-  // Check YouTube immediately
+  // Immediate check on startup
   await checkYouTube();
 
-  // Then continue checking every 5 minutes
+  // Repeat every 5 minutes
   setInterval(checkYouTube, 5 * 60 * 1000);
 });
 
