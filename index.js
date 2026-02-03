@@ -36,9 +36,11 @@ const MEDIA_ROLE_ID = '1467324932965929033';
 
 const parser = new Parser();
 
+// BotPost allowed role
+const BOTPOST_ROLE_ID = '1318997119566090270';
+
 /* ======================
    LAST VIDEO TRACKING
-   (date-based for VODs)
 ====================== */
 
 const LAST_VIDEO_FILE = './lastVideoDate.json';
@@ -76,7 +78,19 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('forceyoutube')
-    .setDescription('Force post the most recent YouTube upload')
+    .setDescription('Force post the most recent YouTube upload'),
+
+  new SlashCommandBuilder()
+    .setName('botpost')
+    .setDescription('Send a message via the bot')
+    .addStringOption(option =>
+      option.setName('message')
+        .setDescription('Message to send through the bot')
+        .setRequired(true))
+    .addChannelOption(option =>
+      option.setName('channel')
+        .setDescription('Channel to post in')
+        .setRequired(false))
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);
@@ -96,7 +110,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  // Admin guard for force command
+  // Admin guard for forceyoutube
   if (
     interaction.commandName === 'forceyoutube' &&
     !interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)
@@ -107,38 +121,72 @@ client.on(Events.InteractionCreate, async interaction => {
     });
   }
 
-  if (interaction.commandName === 'ping') {
-    return interaction.reply('🏓 Pong!');
-  }
-
-  if (interaction.commandName === 'testyoutube') {
-    const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
-    if (!channel) return;
-
-    const embed = {
-      color: 0xFF0000,
-      title: "The Holy Who wk4 [11.23.25] Pastor Terry Jimmerson",
-      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      description: "📢 New video uploaded! Go check it out!",
-      image: {
-        url: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
-      },
-      timestamp: new Date()
-    };
-
-    await channel.send({ embeds: [embed] });
-    await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
-
+  // botpost role check
+  if (
+    interaction.commandName === 'botpost' &&
+    !interaction.member.roles.cache.has(BOTPOST_ROLE_ID)
+  ) {
     return interaction.reply({
-      content: '✅ Test YouTube message sent.',
+      content: '❌ You do not have permission to use this command.',
       ephemeral: true
     });
   }
 
-  if (interaction.commandName === 'forceyoutube') {
-    await interaction.deferReply({ ephemeral: true });
-    await checkYouTube(true);
-    return interaction.editReply('✅ Forced YouTube check complete.');
+  try {
+    switch (interaction.commandName) {
+      case 'ping':
+        return interaction.reply('🏓 Pong!');
+
+      case 'testyoutube': {
+        const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
+        if (!channel) return;
+
+        const embed = {
+          color: 0xFF0000,
+          title: "The Holy Who wk4 [11.23.25] Pastor Terry Jimmerson",
+          url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          description: "📢 New video uploaded! Go check it out!",
+          image: {
+            url: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
+          },
+          timestamp: new Date()
+        };
+
+        await channel.send({ embeds: [embed] });
+        await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
+
+        return interaction.reply({
+          content: '✅ Test YouTube message sent.',
+          ephemeral: true
+        });
+      }
+
+      case 'forceyoutube':
+        await interaction.deferReply({ ephemeral: true });
+        await checkYouTube(true);
+        return interaction.editReply('✅ Forced YouTube check complete.');
+
+      case 'botpost': {
+        const msg = interaction.options.getString('message');
+        const channelOption = interaction.options.getChannel('channel');
+        const targetChannel = channelOption || interaction.channel;
+
+        await targetChannel.send(msg);
+        return interaction.reply({
+          content: '✅ Message sent via bot.',
+          ephemeral: true
+        });
+      }
+
+      default:
+        break;
+    }
+  } catch (err) {
+    console.error(err);
+    await interaction.reply({
+      content: '❌ Command failed.',
+      ephemeral: true
+    });
   }
 });
 
@@ -230,3 +278,4 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.login(token);
+
