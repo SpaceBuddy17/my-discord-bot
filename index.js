@@ -121,7 +121,7 @@ client.on(Events.InteractionCreate, async interaction => {
     });
   }
 
-  // botpost role check (now 2 roles)
+  // botpost role check (2 roles)
   if (
     interaction.commandName === 'botpost' &&
     !BOTPOST_ROLES.some(roleId => interaction.member.roles.cache.has(roleId))
@@ -172,10 +172,8 @@ client.on(Events.InteractionCreate, async interaction => {
         const targetChannel = channelOption || interaction.channel;
 
         await targetChannel.send(msg);
-        return interaction.reply({
-          content: '✅ Message sent via bot.',
-          ephemeral: true
-        });
+        // Removed the confirmation reply to keep it silent
+        break;
       }
 
       default:
@@ -278,4 +276,3 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.login(token);
- 
