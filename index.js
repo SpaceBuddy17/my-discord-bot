@@ -278,4 +278,3 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.login(token);
-
