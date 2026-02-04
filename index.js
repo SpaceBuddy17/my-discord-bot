@@ -46,7 +46,7 @@ const commands = [
             .setRequired(false))
     .addStringOption(option => 
       option.setName('link')
-            .setDescription('Optional URL link to include with custom text')
+            .setDescription('Optional URL link to include with display text "Website Link"')
             .setRequired(false))
     .addRoleOption(option =>
       option.setName('ping')
@@ -107,8 +107,7 @@ client.on('interactionCreate', async interaction => {
 
   // Only add the link if it's not already in description or description2
   if (link && !description.includes(link) && !(description2 && description2.includes(link))) {
-    let displayText = link.length > 40 ? link.slice(0, 37) + '...' : link;
-    previewEmbed.addFields({ name: "\u200b", value: `[${displayText}](${link})` });
+    previewEmbed.addFields({ name: "\u200b", value: `[Website Link](${link})` });
   }
 
   // Buttons for confirm/cancel
@@ -157,7 +156,7 @@ client.on('interactionCreate', async interaction => {
   });
 });
 
-// YouTube notifications for live streams
+// YouTube notifications for live streams only
 const YOUTUBE_CHANNEL_ID = "UC4qOOlisAkrU5T1aJmwqDbA";
 const YOUTUBE_POST_CHANNEL_ID = "1135971664132313240";
 let latestVideoId = null;
@@ -193,7 +192,7 @@ async function checkYoutube() {
 
     const embed = new EmbedBuilder()
       .setTitle(videoTitle)
-      .setDescription("📢 New video uploaded! Go check it out!")
+      .setDescription("📢 New live stream! Go check it out!")
       .setColor(0xFF0000)
       .setImage(thumbnailUrl);
 
@@ -203,6 +202,9 @@ async function checkYoutube() {
       const role = channel.guild.roles.cache.get(MEDIA_ROLE_ID);
       if (role) await channel.send(`${role}`);
     }
+
+    // Add separate message with the channel link
+    await channel.send(`[Website Link](https://www.youtube.com/@destinychurchlv)`);
 
   } catch (err) {
     console.error("Error checking YouTube:", err);
