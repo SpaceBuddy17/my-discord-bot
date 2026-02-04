@@ -28,6 +28,21 @@ const MEDIA_ROLE_ID = "1467324932965929033";
 const BOTPOST_ALLOWED_ROLES = ["1318997119566090270", "1136004041395159140"];
 const VERIFIED_ROLE_ID = "1137122628801405018";
 
+// JSON file to persist last live video
+const STORAGE_FILE = './lastLiveVideo.json';
+let latestLiveVideoId = null;
+
+// Load the last posted live video ID from file
+if (fs.existsSync(STORAGE_FILE)) {
+  try {
+    const data = fs.readFileSync(STORAGE_FILE, 'utf8');
+    const json = JSON.parse(data);
+    latestLiveVideoId = json.latestLiveVideoId || null;
+  } catch (err) {
+    console.error('Error reading lastLiveVideo.json:', err);
+  }
+}
+
 // Slash commands
 const commands = [
   new SlashCommandBuilder()
@@ -96,7 +111,6 @@ client.on('interactionCreate', async interaction => {
   const link = interaction.options.getString('link');
   const pingRole = interaction.options.getRole('ping');
 
-  // Build preview embed
   const previewEmbed = new EmbedBuilder()
     .setTitle(title)
     .setColor(0xFFFFFF)
@@ -106,12 +120,10 @@ client.on('interactionCreate', async interaction => {
     previewEmbed.addFields({ name: "\u200b", value: description2 });
   }
 
-  // Only add the link if it's not already in description or description2
   if (link && !description.includes(link) && !(description2 && description2.includes(link))) {
     previewEmbed.addFields({ name: "\u200b", value: `[Website Link](${link})` });
   }
 
-  // Buttons for confirm/cancel
   const row = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
@@ -124,11 +136,7 @@ client.on('interactionCreate', async interaction => {
         .setStyle(ButtonStyle.Danger)
     );
 
-  await interaction.reply({ 
-    embeds: [previewEmbed], 
-    ephemeral: true, 
-    components: [row] 
-  });
+  await interaction.reply({ embeds: [previewEmbed], ephemeral: true, components: [row] });
 
   const filter = i => i.user.id === interaction.user.id;
   const collector = interaction.channel.createMessageComponentCollector({ filter, time: 60000 });
@@ -161,7 +169,6 @@ client.on('interactionCreate', async interaction => {
 // YouTube notifications for live streams only (trigger once per live stream)
 const YOUTUBE_CHANNEL_ID = "UC4qOOlisAkrU5T1aJmwqDbA";
 const YOUTUBE_POST_CHANNEL_ID = "1135971664132313240";
-let latestLiveVideoId = null;
 
 async function checkYoutubeLive() {
   try {
@@ -176,6 +183,9 @@ async function checkYoutubeLive() {
     if (videoId === latestLiveVideoId) return; // already posted
     latestLiveVideoId = videoId;
 
+    // Save the latest live video ID persistently
+    fs.writeFileSync(STORAGE_FILE, JSON.stringify({ latestLiveVideoId }));
+
     const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
     if (!channel) return;
 
@@ -187,13 +197,11 @@ async function checkYoutubeLive() {
 
     await channel.send({ embeds: [embed] });
 
-    // Optional media role ping
     if (MEDIA_ROLE_ID) {
       const role = channel.guild.roles.cache.get(MEDIA_ROLE_ID);
       if (role) await channel.send(`${role}`);
     }
 
-    // Add link message
     await channel.send(`[Website Link](https://www.youtube.com/@destinychurchlv)`);
 
   } catch (err) {
