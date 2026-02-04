@@ -38,8 +38,12 @@ const commands = [
             .setRequired(true))
     .addStringOption(option => 
       option.setName('description')
-            .setDescription('Description of the embed (multi-line allowed, Markdown supported)')
+            .setDescription('Primary description of the embed (multi-line allowed, Markdown supported)')
             .setRequired(true))
+    .addStringOption(option => 
+      option.setName('description2')
+            .setDescription('Secondary description of the embed (optional, multi-line allowed, Markdown supported)')
+            .setRequired(false))
     .addStringOption(option => 
       option.setName('link')
             .setDescription('Optional URL link to include with custom text')
@@ -76,7 +80,7 @@ client.on('guildMemberAdd', async member => {
   await channel.send(`${member}`);
 });
 
-// BotPost command with preview
+// BotPost command with preview and description2
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'botpost') return;
@@ -87,14 +91,19 @@ client.on('interactionCreate', async interaction => {
 
   const title = interaction.options.getString('title');
   const description = interaction.options.getString('description');
+  const description2 = interaction.options.getString('description2');
   const link = interaction.options.getString('link');
   const pingRole = interaction.options.getRole('ping');
 
-  // Embed to preview (Markdown supported)
+  // Build preview embed
   const previewEmbed = new EmbedBuilder()
     .setTitle(title)
     .setColor(0xFFFFFF)
     .setDescription(description);
+
+  if (description2) {
+    previewEmbed.addFields({ name: "\u200b", value: description2 });
+  }
 
   if (link) {
     let displayText = link.length > 40 ? link.slice(0, 37) + '...' : link;
@@ -207,4 +216,3 @@ client.once('ready', () => {
 });
 
 client.login(token);
-
