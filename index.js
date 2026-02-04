@@ -105,7 +105,8 @@ client.on('interactionCreate', async interaction => {
     previewEmbed.addFields({ name: "\u200b", value: description2 });
   }
 
-  if (link) {
+  // Only add the link if it's not already in description or description2
+  if (link && !description.includes(link) && !(description2 && description2.includes(link))) {
     let displayText = link.length > 40 ? link.slice(0, 37) + '...' : link;
     previewEmbed.addFields({ name: "\u200b", value: `[${displayText}](${link})` });
   }
@@ -156,7 +157,7 @@ client.on('interactionCreate', async interaction => {
   });
 });
 
-// YouTube notifications with persistent tracking
+// YouTube notifications for live streams
 const YOUTUBE_CHANNEL_ID = "UC4qOOlisAkrU5T1aJmwqDbA";
 const YOUTUBE_POST_CHANNEL_ID = "1135971664132313240";
 let latestVideoId = null;
