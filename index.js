@@ -31,7 +31,9 @@ const WELCOME_CHANNEL_ID = "1135971664132313243";
 const MEDIA_ROLE_ID = "1467324932965929033";
 const BOTPOST_ALLOWED_ROLES = ["1318997119566090270", "1136004041395159140"];
 const VERIFIED_ROLE_ID = "1137122628801405018";
-const ADMIN_ROLES = ["1318997119566090270"]; // Admins for anon lookup
+
+// Admins allowed for anonymous lookup (added new role)
+const ADMIN_ROLES = ["1318997119566090270", "1136004041395159140"];
 
 // Storage files
 const LAST_LIVE_FILE = './lastLiveVideo.json';
