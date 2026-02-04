@@ -20,6 +20,7 @@ const client = new Client({
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 const guildId = process.env.GUILD_ID;
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
 // Role IDs
 const WELCOME_CHANNEL_ID = "1135971664132313243";
@@ -137,7 +138,8 @@ client.on('interactionCreate', async interaction => {
       try {
         await interaction.channel.send({ embeds: [previewEmbed] });
         if (pingRole) await interaction.channel.send(`${pingRole}`);
-        await i.update({ content: '✅ Embed sent!', embeds: [], components: [], ephemeral: true });
+        // Removed confirmation response
+        await i.update({ embeds: [], components: [], ephemeral: true, content: null });
       } catch (err) {
         console.error('Error sending embed:', err);
         await i.update({ content: '❌ Failed to send embed. Check console.', embeds: [], components: [], ephemeral: true });
@@ -156,63 +158,51 @@ client.on('interactionCreate', async interaction => {
   });
 });
 
-// YouTube notifications for live streams only
+// YouTube notifications for live streams only (trigger once per live stream)
 const YOUTUBE_CHANNEL_ID = "UC4qOOlisAkrU5T1aJmwqDbA";
 const YOUTUBE_POST_CHANNEL_ID = "1135971664132313240";
-let latestVideoId = null;
+let latestLiveVideoId = null;
 
-// Load last posted video ID
-if (fs.existsSync('lastVideo.json')) {
-  const data = JSON.parse(fs.readFileSync('lastVideo.json', 'utf8'));
-  latestVideoId = data.latestVideoId || null;
-}
-
-async function checkYoutube() {
+async function checkYoutubeLive() {
   try {
-    const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`;
-    const res = await fetch(feedUrl);
-    const text = await res.text();
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${YOUTUBE_CHANNEL_ID}&eventType=live&type=video&key=${YOUTUBE_API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
 
-    const match = text.match(/<yt:videoId>(.+)<\/yt:videoId>/);
-    if (!match) return;
+    if (!data.items || data.items.length === 0) return; // no live stream
+    const video = data.items[0];
+    const videoId = video.id.videoId;
 
-    const videoId = match[1];
-    if (videoId === latestVideoId) return; // already posted
-    latestVideoId = videoId;
-
-    // Save latest video ID
-    fs.writeFileSync('lastVideo.json', JSON.stringify({ latestVideoId }));
-
-    const videoTitleMatch = text.match(/<title>(.+)<\/title>/);
-    const videoTitle = videoTitleMatch ? videoTitleMatch[1] : 'New Video';
-    const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    if (videoId === latestLiveVideoId) return; // already posted
+    latestLiveVideoId = videoId;
 
     const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
     if (!channel) return;
 
     const embed = new EmbedBuilder()
-      .setTitle(videoTitle)
+      .setTitle(video.snippet.title)
       .setDescription("📢 New live stream! Go check it out!")
       .setColor(0xFF0000)
-      .setImage(thumbnailUrl);
+      .setImage(`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`);
 
     await channel.send({ embeds: [embed] });
 
+    // Optional media role ping
     if (MEDIA_ROLE_ID) {
       const role = channel.guild.roles.cache.get(MEDIA_ROLE_ID);
       if (role) await channel.send(`${role}`);
     }
 
-    // Add separate message with the channel link
+    // Add link message
     await channel.send(`[Website Link](https://www.youtube.com/@destinychurchlv)`);
 
   } catch (err) {
-    console.error("Error checking YouTube:", err);
+    console.error("Error checking YouTube live:", err);
   }
 }
 
-// Poll YouTube every 5 minutes
-setInterval(checkYoutube, 5 * 60 * 1000);
+// Poll YouTube live every 2 minutes
+setInterval(checkYoutubeLive, 2 * 60 * 1000);
 
 client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
