@@ -13,7 +13,7 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
 // Environment variables
@@ -32,7 +32,7 @@ const VERIFIED_ROLE_ID = "1137122628801405018";
 const STORAGE_FILE = './lastLiveVideo.json';
 let latestLiveVideoId = null;
 
-// Load the last posted live video ID from file
+// Load last posted live video ID
 if (fs.existsSync(STORAGE_FILE)) {
   try {
     const data = fs.readFileSync(STORAGE_FILE, 'utf8');
@@ -42,6 +42,12 @@ if (fs.existsSync(STORAGE_FILE)) {
     console.error('Error reading lastLiveVideo.json:', err);
   }
 }
+
+// Anonymous channels
+const ANON_CHANNELS = [
+  "1135983739843915846",
+  "1468476714626711643"
+];
 
 // Slash commands
 const commands = [
@@ -63,10 +69,6 @@ const commands = [
     .addStringOption(option => 
       option.setName('link')
             .setDescription('Optional URL link to include with display text "Website Link"')
-            .setRequired(false))
-    .addRoleOption(option =>
-      option.setName('ping')
-            .setDescription('Optional role to ping after sending the embed')
             .setRequired(false))
 ].map(c => c.toJSON());
 
@@ -109,64 +111,54 @@ client.on('interactionCreate', async interaction => {
   const description = interaction.options.getString('description');
   const description2 = interaction.options.getString('description2');
   const link = interaction.options.getString('link');
-  const pingRole = interaction.options.getRole('ping');
 
-  const previewEmbed = new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle(title)
     .setColor(0xFFFFFF)
     .setDescription(description);
 
   if (description2) {
-    previewEmbed.addFields({ name: "\u200b", value: description2 });
+    embed.addFields({ name: "\u200b", value: description2 });
   }
 
   if (link && !description.includes(link) && !(description2 && description2.includes(link))) {
-    previewEmbed.addFields({ name: "\u200b", value: `[Website Link](${link})` });
+    embed.addFields({ name: "\u200b", value: `[Website Link](${link})` });
   }
 
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('confirm_post')
-        .setLabel('✅ Send Embed')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId('cancel_post')
-        .setLabel('❌ Cancel')
-        .setStyle(ButtonStyle.Danger)
-    );
-
-  await interaction.reply({ embeds: [previewEmbed], ephemeral: true, components: [row] });
-
-  const filter = i => i.user.id === interaction.user.id;
-  const collector = interaction.channel.createMessageComponentCollector({ filter, time: 60000 });
-
-  collector.on('collect', async i => {
-    if (i.customId === 'confirm_post') {
-      try {
-        await interaction.channel.send({ embeds: [previewEmbed] });
-        if (pingRole) await interaction.channel.send(`${pingRole}`);
-        // Removed confirmation response
-        await i.update({ embeds: [], components: [], ephemeral: true, content: null });
-      } catch (err) {
-        console.error('Error sending embed:', err);
-        await i.update({ content: '❌ Failed to send embed. Check console.', embeds: [], components: [], ephemeral: true });
-      }
-      collector.stop();
-    } else if (i.customId === 'cancel_post') {
-      await i.update({ content: '❌ Posting cancelled.', embeds: [], components: [], ephemeral: true });
-      collector.stop();
-    }
-  });
-
-  collector.on('end', collected => {
-    if (collected.size === 0) {
-      interaction.editReply({ content: '⌛ Time expired. Preview no longer available.', embeds: [], components: [], ephemeral: true });
-    }
-  });
+  try {
+    await interaction.channel.send({ embeds: [embed] });
+  } catch (err) {
+    console.error('Error sending embed:', err);
+    await interaction.reply({ content: '❌ Failed to send embed. Check console.', ephemeral: true });
+  }
 });
 
-// YouTube notifications for live streams only (trigger once per live stream)
+// Anonymous message handler
+client.on('messageCreate', async message => {
+  if (message.author.bot) return;
+  if (!ANON_CHANNELS.includes(message.channel.id)) return;
+
+  const channel = message.channel;
+  try {
+    await message.delete();
+
+    const anonEmbed = {
+      color: 0xFFFFFF,
+      description: message.content || "\u200b",
+      timestamp: new Date(),
+      footer: { text: "Anonymous message" }
+    };
+
+    const files = [];
+    message.attachments.forEach(att => files.push(att.url));
+
+    await channel.send({ embeds: [anonEmbed], content: files.length ? files.join("\n") : null });
+  } catch (err) {
+    console.error("Error sending anonymous message:", err);
+  }
+});
+
+// YouTube live stream notifications (only post once per live stream)
 const YOUTUBE_CHANNEL_ID = "UC4qOOlisAkrU5T1aJmwqDbA";
 const YOUTUBE_POST_CHANNEL_ID = "1135971664132313240";
 
@@ -183,7 +175,7 @@ async function checkYoutubeLive() {
     if (videoId === latestLiveVideoId) return; // already posted
     latestLiveVideoId = videoId;
 
-    // Save the latest live video ID persistently
+    // Persist latest live video ID
     fs.writeFileSync(STORAGE_FILE, JSON.stringify({ latestLiveVideoId }));
 
     const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
@@ -209,7 +201,7 @@ async function checkYoutubeLive() {
   }
 }
 
-// Poll YouTube live every 2 minutes
+// Poll every 2 minutes
 setInterval(checkYoutubeLive, 2 * 60 * 1000);
 
 client.once('ready', () => {
