@@ -16,18 +16,19 @@ const client = new Client({
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 const guildId = process.env.GUILD_ID;
-const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
 // Role IDs
 const WELCOME_CHANNEL_ID = "1135971664132313243";
 const MEDIA_ROLE_ID = "1467324932965929033";
 const BOTPOST_ALLOWED_ROLES = ["1318997119566090270", "1136004041395159140"];
+const VERIFIED_ROLE_ID = "1137122628801405018";
 
 // Slash commands
 const commands = [
   new SlashCommandBuilder()
     .setName('botpost')
     .setDescription('Send a custom embed message via the bot')
+    // REQUIRED options first
     .addStringOption(option => 
       option.setName('title')
             .setDescription('Title of the embed')
@@ -36,6 +37,11 @@ const commands = [
       option.setName('description')
             .setDescription('Primary description of the embed (multi-line allowed)')
             .setRequired(true))
+    .addChannelOption(option =>
+      option.setName('channel')
+            .setDescription('Channel to send the embed')
+            .setRequired(true))
+    // OPTIONAL options next
     .addStringOption(option => 
       option.setName('description2')
             .setDescription('Secondary description of the embed (optional, multi-line allowed)')
@@ -44,10 +50,6 @@ const commands = [
       option.setName('link')
             .setDescription('Optional URL link to include in embed')
             .setRequired(false))
-    .addChannelOption(option =>
-      option.setName('channel')
-            .setDescription('Channel to send the embed')
-            .setRequired(true))
     .addRoleOption(option =>
       option.setName('ping')
             .setDescription('Optional role to ping')
@@ -68,7 +70,6 @@ client.on('guildMemberAdd', async member => {
   const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
   if (!channel) return;
 
-  const VERIFIED_ROLE_ID = "1137122628801405018";
   if (!member.roles.cache.has(VERIFIED_ROLE_ID)) return;
 
   const welcomeEmbed = new EmbedBuilder()
@@ -123,10 +124,9 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// YouTube notifications (simplified, using RSS feed)
+// YouTube notifications
 const YOUTUBE_CHANNEL_ID = "UC4qOOlisAkrU5T1aJmwqDbA";
 const YOUTUBE_POST_CHANNEL_ID = "1135971664132313240";
-const YOUTUBE_ROLE_ID = MEDIA_ROLE_ID;
 let latestVideoId = null;
 
 async function checkYoutube() {
@@ -158,8 +158,8 @@ async function checkYoutube() {
 
     await channel.send({ embeds: [embed] });
 
-    if (YOUTUBE_ROLE_ID) {
-      const role = channel.guild.roles.cache.get(YOUTUBE_ROLE_ID);
+    if (MEDIA_ROLE_ID) {
+      const role = channel.guild.roles.cache.get(MEDIA_ROLE_ID);
       if (role) await channel.send(`${role}`);
     }
 
