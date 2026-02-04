@@ -1,246 +1,200 @@
-require('dotenv').config();
-const {
+const { 
   Client,
   GatewayIntentBits,
-  Partials,
-  SlashCommandBuilder,
+  EmbedBuilder,
+  Events,
+  PermissionsBitField,
   REST,
   Routes,
-  EmbedBuilder,
-  PermissionFlagsBits
+  SlashCommandBuilder
 } = require('discord.js');
 
-const Parser = require('rss-parser');
-const parser = new Parser();
+const fetch = require('node-fetch');
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
-  ],
-  partials: [Partials.GuildMember]
+const client = new Client({ 
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
-/* =======================
-   CONFIG
-======================= */
+// Environment variables
+const token = process.env.TOKEN;
+const clientId = process.env.CLIENT_ID;
+const guildId = process.env.GUILD_ID;
+const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
-const TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID;
+// YouTube config
+const YT_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
+const YT_POST_CHANNEL = '1135971664132313240';
+const YT_ROLE_ID = '1467324932965929033';
 
-const ALLOWED_ROLES = [
-  '1318997119566090270',
-  '1136004041395159140'
-];
+// Role-restricted commands
+const COMMAND_ROLES = ['1318997119566090270','1136004041395159140'];
 
-// Welcome
-const WELCOME_CHANNEL_ID = '1135971664132313243';
-const VERIFIED_ROLE_ID = '1137122628801405018';
+// In-memory store to prevent duplicates
+let postedVideoIds = new Set();
 
-// YouTube
-const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
-const YOUTUBE_POST_CHANNEL_ID = '1135971664132313240';
-const MEDIA_ROLE_ID = '1467324932965929033';
-
-let lastVideoId = null;
-
-/* =======================
-   SLASH COMMANDS
-======================= */
-
+// --- Slash commands ---
 const commands = [
   new SlashCommandBuilder()
     .setName('botpost')
-    .setDescription('Send a message via the bot')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(o =>
-      o.setName('message')
-        .setDescription('Message to send')
-        .setRequired(true))
-    .addChannelOption(o =>
-      o.setName('channel')
-        .setDescription('Target channel')
-        .setRequired(false)),
-
-  new SlashCommandBuilder()
-    .setName('botpostembed')
-    .setDescription('Send an embed via the bot')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption(o =>
-      o.setName('title')
-        .setDescription('Embed title')
-        .setRequired(true))
-    .addStringOption(o =>
-      o.setName('description')
-        .setDescription('Embed description')
-        .setRequired(true))
-    .addRoleOption(o =>
-      o.setName('ping')
-        .setDescription('Optional role to ping')
-        .setRequired(false))
-    .addStringOption(o =>
-      o.setName('image')
-        .setDescription('Optional image URL')
-        .setRequired(false))
-    .addChannelOption(o =>
-      o.setName('channel')
-        .setDescription('Target channel')
-        .setRequired(false)),
-
+    .setDescription('Send a custom bot message')
+    .addStringOption(option =>
+      option.setName('title')
+            .setDescription('Title for the embed')
+            .setRequired(true))
+    .addStringOption(option =>
+      option.setName('description')
+            .setDescription('Description for the embed')
+            .setRequired(true))
+    .addRoleOption(option =>
+      option.setName('pingrole')
+            .setDescription('Optional role to ping')
+            .setRequired(false)),
   new SlashCommandBuilder()
     .setName('forceyoutube')
-    .setDescription('Force post the latest YouTube upload')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDescription('Force post the latest YouTube video')
 ].map(c => c.toJSON());
 
-/* =======================
-   REGISTER COMMANDS
-======================= */
-
-const rest = new REST({ version: '10' }).setToken(TOKEN);
-
+const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
   await rest.put(
-    Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+    Routes.applicationGuildCommands(clientId, guildId),
     { body: commands }
   );
   console.log('✅ Slash commands registered');
 })();
 
-/* =======================
-   ROLE CHECK HELPER
-======================= */
+// --- Welcome message ---
+client.on(Events.GuildMemberAdd, async member => {
+  try {
+    const verifiedRole = member.guild.roles.cache.get('1137122628801405018');
+    if (!verifiedRole) return;
+    if (!member.roles.cache.has(verifiedRole.id)) return; // Only send if verified
 
-function hasAllowedRole(member) {
-  return ALLOWED_ROLES.some(r => member.roles.cache.has(r));
-}
+    const welcomeEmbed = new EmbedBuilder()
+      .setTitle('WELCOME TO DESTINY CHURCH!')
+      .setDescription('We’re so glad you’re here.')
+      .setColor(0xFFFFFF)
+      .setThumbnail(member.user.displayAvatarURL({ dynamic: true }));
 
-/* =======================
-   INTERACTIONS
-======================= */
+    const channel = member.guild.channels.cache.get('1135971664132313243');
+    if (!channel) return;
 
-client.on('interactionCreate', async interaction => {
+    await channel.send({ embeds: [welcomeEmbed] });
+    await channel.send({ content: `<@${member.id}>` }); // Ping after embed
+  } catch(err) {
+    console.error('Welcome message error:', err);
+  }
+});
+
+// --- Interaction handler ---
+client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
-
-  if (!hasAllowedRole(interaction.member)) {
-    await interaction.reply({
-      content: '❌ You do not have permission to use this command.',
-      ephemeral: true
-    });
-    return;
+  if (!COMMAND_ROLES.some(r => interaction.member.roles.cache.has(r))) {
+    return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
   }
 
-  /* ---- /botpost ---- */
-  if (interaction.commandName === 'botpost') {
-    const message = interaction.options.getString('message');
-    const channel =
-      interaction.options.getChannel('channel') || interaction.channel;
+  const { commandName } = interaction;
 
-    await channel.send(message);
-    await interaction.deferReply({ ephemeral: true });
-    await interaction.deleteReply();
-  }
-
-  /* ---- /botpostembed ---- */
-  if (interaction.commandName === 'botpostembed') {
+  if (commandName === 'botpost') {
     const title = interaction.options.getString('title');
     const description = interaction.options.getString('description');
-    const pingRole = interaction.options.getRole('ping');
-    const image = interaction.options.getString('image');
-    const channel =
-      interaction.options.getChannel('channel') || interaction.channel;
+    const pingRole = interaction.options.getRole('pingrole');
 
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setDescription(description)
-      .setColor(0xffffff)
-      .setTimestamp();
+      .setColor(0xFFFFFF);
 
-    if (image) embed.setImage(image);
-
-    await channel.send({
-      content: pingRole ? `<@&${pingRole.id}>` : null,
-      embeds: [embed]
-    });
-
-    await interaction.deferReply({ ephemeral: true });
-    await interaction.deleteReply();
-  }
-
-  /* ---- /forceyoutube ---- */
-  if (interaction.commandName === 'forceyoutube') {
-    await postLatestYouTubeVideo(true);
-    await interaction.deferReply({ ephemeral: true });
-    await interaction.deleteReply();
-  }
-});
-
-/* =======================
-   WELCOME MESSAGE
-======================= */
-
-client.on('guildMemberUpdate', async (oldMember, newMember) => {
-  if (
-    !oldMember.roles.cache.has(VERIFIED_ROLE_ID) &&
-    newMember.roles.cache.has(VERIFIED_ROLE_ID)
-  ) {
-    const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
-    if (!channel) return;
-
-    const embed = new EmbedBuilder()
-      .setColor(0xffffff)
-      .setTitle('Welcome!')
-      .setDescription('We’re glad you’re here.')
-      .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true }))
-      .setTimestamp();
-
+    const channel = interaction.channel;
     await channel.send({ embeds: [embed] });
-    await channel.send(`<@${newMember.id}>`);
+    if (pingRole) await channel.send({ content: `<@&${pingRole.id}>` });
+
+    // Completely silent: no ephemeral reply
+    await interaction.deferReply({ ephemeral: true });
+    await interaction.deleteReply();
+  }
+
+  if (commandName === 'forceyoutube') {
+    try {
+      const video = await getLatestYouTubeVideo();
+      if (!video) return interaction.reply({ content: 'No recent video found.', ephemeral: true });
+
+      if (!postedVideoIds.has(video.id)) {
+        await postYouTubeVideo(interaction.guild, video);
+        postedVideoIds.add(video.id);
+      }
+
+      await interaction.reply({ content: 'YouTube video posted.', ephemeral: true });
+    } catch(err) {
+      console.error('Force YouTube error:', err);
+      await interaction.reply({ content: 'Error posting YouTube video.', ephemeral: true });
+    }
   }
 });
 
-/* =======================
-   YOUTUBE WATCHER
-======================= */
+// --- YouTube polling ---
+async function checkYouTubeUpdates() {
+  try {
+    const video = await getLatestYouTubeVideo();
+    if (!video) return;
+    if (postedVideoIds.has(video.id)) return; // Already posted
+    postedVideoIds.add(video.id);
 
-async function postLatestYouTubeVideo(force = false) {
-  const feed = await parser.parseURL(
-    `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`
-  );
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return;
 
-  const video = feed.items[0];
-  if (!video) return;
+    await postYouTubeVideo(guild, video);
 
-  if (!force && video.id === lastVideoId) return;
-
-  lastVideoId = video.id;
-
-  // Skip livestreams until VOD
-  if (video.itunes?.duration === undefined) return;
-
-  const channel = await client.channels.fetch(YOUTUBE_POST_CHANNEL_ID);
-
-  const embed = new EmbedBuilder()
-    .setTitle(video.title.replace(/\|\|/g, '｜｜'))
-    .setURL(video.link)
-    .setDescription('📢 New video uploaded! Go check it out!')
-    .setColor(0xff0000)
-    .setImage(video.media?.thumbnail?.url)
-    .setTimestamp();
-
-  await channel.send({ embeds: [embed] });
-  await channel.send(`<@&${MEDIA_ROLE_ID}>`);
+  } catch(err) {
+    console.error('YouTube polling error:', err);
+  }
 }
 
-setInterval(() => postLatestYouTubeVideo(false), 5 * 60 * 1000);
+// Poll every 5 minutes
+setInterval(checkYouTubeUpdates, 5 * 60 * 1000);
 
-/* =======================
-   READY
-======================= */
+// --- Helper: fetch latest video ---
+async function getLatestYouTubeVideo() {
+  const url = `https://www.googleapis.com/youtube/v3/search?key=${youtubeApiKey}&channelId=${YT_CHANNEL_ID}&part=snippet&order=date&maxResults=1&type=video`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!data.items || data.items.length === 0) return null;
 
-client.once('ready', () => {
+  const video = data.items[0];
+  const liveStatus = video.snippet.liveBroadcastContent; // live, upcoming, none
+
+  // Only post if live now or regular upload
+  if (liveStatus === 'upcoming') return null;
+
+  return {
+    id: video.id.videoId,
+    title: video.snippet.title,
+    thumbnail: video.snippet.thumbnails.high.url,
+    url: `https://www.youtube.com/watch?v=${video.id.videoId}`,
+    isLive: liveStatus === 'live'
+  };
+}
+
+// --- Helper: post YouTube video ---
+async function postYouTubeVideo(guild, video) {
+  const channel = guild.channels.cache.get(YT_POST_CHANNEL);
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle(video.title)
+    .setURL(video.url)
+    .setDescription(video.isLive ? '🔴 LIVE NOW! Go watch!' : '📢 New video uploaded! Go check it out!')
+    .setImage(video.thumbnail)
+    .setColor(0xFF0000); // YouTube red
+
+  await channel.send({ embeds: [embed] });
+  await channel.send({ content: `<@&${YT_ROLE_ID}>` }); // Ping role after embed
+}
+
+// --- Ready ---
+client.once(Events.ClientReady, () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
+  checkYouTubeUpdates(); // Check immediately on startup
 });
 
-client.login(TOKEN);
+client.login(token);
