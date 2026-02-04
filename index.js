@@ -34,8 +34,12 @@ const commands = [
             .setRequired(true))
     .addStringOption(option => 
       option.setName('description')
-            .setDescription('Description of the embed (use \\n for line breaks)')
+            .setDescription('Primary description of the embed (multi-line allowed)')
             .setRequired(true))
+    .addStringOption(option => 
+      option.setName('description2')
+            .setDescription('Secondary description of the embed (optional, multi-line allowed)')
+            .setRequired(false))
     .addStringOption(option => 
       option.setName('link')
             .setDescription('Optional URL link to include in embed')
@@ -90,9 +94,11 @@ client.on('interactionCreate', async interaction => {
     return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
   }
 
+  await interaction.deferReply({ ephemeral: true }); // ACK the command immediately
+
   const title = interaction.options.getString('title');
-  const descriptionRaw = interaction.options.getString('description');
-  const description = descriptionRaw.replace(/\\n/g, '\n'); // Convert \n to actual line breaks
+  const description = interaction.options.getString('description'); // primary
+  const description2 = interaction.options.getString('description2'); // secondary
   const link = interaction.options.getString('link');
   const channel = interaction.options.getChannel('channel');
   const pingRole = interaction.options.getRole('ping');
@@ -100,12 +106,14 @@ client.on('interactionCreate', async interaction => {
   const embed = new EmbedBuilder()
     .setTitle(title)
     .setColor(0xFFFFFF)
-    .addFields(
-      { name: "\u200b", value: description } // main description
-    );
+    .setDescription(description); // primary description
+
+  if (description2) {
+    embed.addFields({ name: "\u200b", value: description2 }); // secondary description
+  }
 
   if (link) {
-    embed.addFields({ name: "\u200b", value: `[Link](${link})` }); // optional link field
+    embed.addFields({ name: "\u200b", value: `[Link](${link})` }); // optional link
   }
 
   await channel.send({ embeds: [embed] });
@@ -114,7 +122,7 @@ client.on('interactionCreate', async interaction => {
     await channel.send(`${pingRole}`);
   }
 
-  await interaction.reply({ content: 'Embed sent!', ephemeral: true });
+  await interaction.editReply({ content: '✅ Embed sent!' });
 });
 
 // YouTube notifications (simplified, using RSS feed)
