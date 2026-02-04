@@ -37,10 +37,6 @@ const commands = [
       option.setName('description')
             .setDescription('Primary description of the embed (multi-line allowed)')
             .setRequired(true))
-    .addChannelOption(option =>
-      option.setName('channel')
-            .setDescription('Channel to send the embed')
-            .setRequired(true))
     // OPTIONAL options next
     .addStringOption(option => 
       option.setName('description2')
@@ -56,6 +52,7 @@ const commands = [
             .setRequired(false))
 ].map(c => c.toJSON());
 
+// Register slash commands
 const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
   await rest.put(
@@ -98,8 +95,9 @@ client.on('interactionCreate', async interaction => {
     const description = interaction.options.getString('description');
     const description2 = interaction.options.getString('description2');
     const link = interaction.options.getString('link');
-    const channel = interaction.options.getChannel('channel');
     const pingRole = interaction.options.getRole('ping');
+
+    const embedChannel = interaction.channel; // send in the same channel
 
     const embed = new EmbedBuilder()
       .setTitle(title)
@@ -109,8 +107,8 @@ client.on('interactionCreate', async interaction => {
     if (description2) embed.addFields({ name: "\u200b", value: description2 });
     if (link) embed.addFields({ name: "\u200b", value: `[Link](${link})` });
 
-    await channel.send({ embeds: [embed] });
-    if (pingRole) await channel.send(`${pingRole}`);
+    await embedChannel.send({ embeds: [embed] });
+    if (pingRole) await embedChannel.send(`${pingRole}`);
 
     await interaction.editReply({ content: '✅ Embed sent!' });
 
