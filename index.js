@@ -4,9 +4,13 @@ const {
   SlashCommandBuilder, 
   EmbedBuilder, 
   REST, 
-  Routes 
+  Routes, 
+  ActionRowBuilder, 
+  ButtonBuilder, 
+  ButtonStyle 
 } = require('discord.js');
 const fetch = require('node-fetch');
+const fs = require('fs');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
@@ -27,28 +31,22 @@ const VERIFIED_ROLE_ID = "1137122628801405018";
 const commands = [
   new SlashCommandBuilder()
     .setName('botpost')
-    .setDescription('Send a custom embed message via the bot')
-    // REQUIRED options first
+    .setDescription('Send a custom embed message via the bot with preview')
     .addStringOption(option => 
       option.setName('title')
             .setDescription('Title of the embed')
             .setRequired(true))
     .addStringOption(option => 
       option.setName('description')
-            .setDescription('Primary description of the embed (multi-line allowed)')
+            .setDescription('Description of the embed (multi-line allowed, Markdown supported)')
             .setRequired(true))
-    // OPTIONAL options next
-    .addStringOption(option => 
-      option.setName('description2')
-            .setDescription('Secondary description of the embed (optional, multi-line allowed)')
-            .setRequired(false))
     .addStringOption(option => 
       option.setName('link')
-            .setDescription('Optional URL link to include in embed')
+            .setDescription('Optional URL link to include with custom text')
             .setRequired(false))
     .addRoleOption(option =>
       option.setName('ping')
-            .setDescription('Optional role to ping')
+            .setDescription('Optional role to ping after sending the embed')
             .setRequired(false))
 ].map(c => c.toJSON());
 
@@ -66,7 +64,6 @@ const rest = new REST({ version: '10' }).setToken(token);
 client.on('guildMemberAdd', async member => {
   const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
   if (!channel) return;
-
   if (!member.roles.cache.has(VERIFIED_ROLE_ID)) return;
 
   const welcomeEmbed = new EmbedBuilder()
@@ -79,7 +76,7 @@ client.on('guildMemberAdd', async member => {
   await channel.send(`${member}`);
 });
 
-// BotPost command
+// BotPost command with preview
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'botpost') return;
@@ -88,45 +85,78 @@ client.on('interactionCreate', async interaction => {
     return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
   }
 
-  try {
-    await interaction.deferReply({ ephemeral: true });
+  const title = interaction.options.getString('title');
+  const description = interaction.options.getString('description');
+  const link = interaction.options.getString('link');
+  const pingRole = interaction.options.getRole('ping');
 
-    const title = interaction.options.getString('title');
-    const description = interaction.options.getString('description');
-    const description2 = interaction.options.getString('description2');
-    const link = interaction.options.getString('link');
-    const pingRole = interaction.options.getRole('ping');
+  // Embed to preview (Markdown supported)
+  const previewEmbed = new EmbedBuilder()
+    .setTitle(title)
+    .setColor(0xFFFFFF)
+    .setDescription(description);
 
-    const embedChannel = interaction.channel; // send in the same channel
-
-    // Use raw strings to preserve line breaks exactly
-    const embed = new EmbedBuilder()
-      .setTitle(title)
-      .setColor(0xFFFFFF)
-      .setDescription(description);
-
-    if (description2) embed.addFields({ name: "\u200b", value: description2 });
-    if (link) embed.addFields({ name: "\u200b", value: `[Link](${link})` });
-
-    await embedChannel.send({ embeds: [embed] });
-    if (pingRole) await embedChannel.send(`${pingRole}`);
-
-    await interaction.editReply({ content: '✅ Embed sent!' });
-
-  } catch (err) {
-    console.error('Error in /botpost:', err);
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({ content: '❌ Failed to send embed. Check console for errors.', ephemeral: true });
-    } else {
-      await interaction.reply({ content: '❌ Failed to send embed. Check console for errors.', ephemeral: true });
-    }
+  if (link) {
+    let displayText = link.length > 40 ? link.slice(0, 37) + '...' : link;
+    previewEmbed.addFields({ name: "\u200b", value: `[${displayText}](${link})` });
   }
+
+  // Buttons for confirm/cancel
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('confirm_post')
+        .setLabel('✅ Send Embed')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('cancel_post')
+        .setLabel('❌ Cancel')
+        .setStyle(ButtonStyle.Danger)
+    );
+
+  await interaction.reply({ 
+    embeds: [previewEmbed], 
+    ephemeral: true, 
+    components: [row] 
+  });
+
+  const filter = i => i.user.id === interaction.user.id;
+  const collector = interaction.channel.createMessageComponentCollector({ filter, time: 60000 });
+
+  collector.on('collect', async i => {
+    if (i.customId === 'confirm_post') {
+      try {
+        await interaction.channel.send({ embeds: [previewEmbed] });
+        if (pingRole) await interaction.channel.send(`${pingRole}`);
+        await i.update({ content: '✅ Embed sent!', embeds: [], components: [], ephemeral: true });
+      } catch (err) {
+        console.error('Error sending embed:', err);
+        await i.update({ content: '❌ Failed to send embed. Check console.', embeds: [], components: [], ephemeral: true });
+      }
+      collector.stop();
+    } else if (i.customId === 'cancel_post') {
+      await i.update({ content: '❌ Posting cancelled.', embeds: [], components: [], ephemeral: true });
+      collector.stop();
+    }
+  });
+
+  collector.on('end', collected => {
+    if (collected.size === 0) {
+      interaction.editReply({ content: '⌛ Time expired. Preview no longer available.', embeds: [], components: [], ephemeral: true });
+    }
+  });
 });
 
-// YouTube notifications
+// YouTube notifications with persistent tracking
 const YOUTUBE_CHANNEL_ID = "UC4qOOlisAkrU5T1aJmwqDbA";
 const YOUTUBE_POST_CHANNEL_ID = "1135971664132313240";
 let latestVideoId = null;
+
+// Load last posted video ID
+if (fs.existsSync('lastVideo.json')) {
+  const data = JSON.parse(fs.readFileSync('lastVideo.json', 'utf8'));
+  latestVideoId = data.latestVideoId || null;
+}
 
 async function checkYoutube() {
   try {
@@ -138,12 +168,14 @@ async function checkYoutube() {
     if (!match) return;
 
     const videoId = match[1];
-    if (videoId === latestVideoId) return;
+    if (videoId === latestVideoId) return; // already posted
     latestVideoId = videoId;
+
+    // Save latest video ID
+    fs.writeFileSync('lastVideo.json', JSON.stringify({ latestVideoId }));
 
     const videoTitleMatch = text.match(/<title>(.+)<\/title>/);
     const videoTitle = videoTitleMatch ? videoTitleMatch[1] : 'New Video';
-
     const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 
     const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
@@ -170,7 +202,6 @@ async function checkYoutube() {
 // Poll YouTube every 5 minutes
 setInterval(checkYoutube, 5 * 60 * 1000);
 
-// Login
 client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 });
