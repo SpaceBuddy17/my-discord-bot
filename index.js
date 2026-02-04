@@ -99,6 +99,7 @@ client.on('interactionCreate', async interaction => {
 
     const embedChannel = interaction.channel; // send in the same channel
 
+    // Use raw strings to preserve line breaks exactly
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setColor(0xFFFFFF)
@@ -175,3 +176,4 @@ client.once('ready', () => {
 });
 
 client.login(token);
+
