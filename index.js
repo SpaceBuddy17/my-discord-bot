@@ -124,7 +124,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
   const o = interaction.options;
 
-  // Permissions check
+  // Permissions check for admin-only commands
   if (interaction.isChatInputCommand() && !hasAdminRole(interaction.member) &&
       ['botpost'].includes(interaction.commandName)) {
     return interaction.reply({ content: '❌ No permission.', ephemeral: true });
@@ -173,13 +173,13 @@ client.on(Events.InteractionCreate, async interaction => {
 
   /* ---------- PREVIEW WELCOME ---------- */
   if (interaction.isChatInputCommand() && interaction.commandName === 'previewwelcome') {
-    const embed = {
-      color: 0xFFFFFF,
-      title: `Welcome to ${interaction.guild.name}!`,
-      description: "We’re thrilled to have you here! Feel free to jump in and say hello!",
-      image: { url: WELCOME_IMAGE_URL },
-      timestamp: new Date()
-    };
+    const embed = new EmbedBuilder()
+      .setColor(0xFFFFFF)
+      .setTitle(`Welcome to ${interaction.guild.name}!`)
+      .setDescription("We’re thrilled to have you here! Feel free to jump in and say hello!")
+      .setImage(WELCOME_IMAGE_URL)
+      .setTimestamp();
+
     return interaction.reply({ embeds: [embed], ephemeral: true });
   }
 
@@ -219,13 +219,12 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     ];
     const randomEnding = endings[Math.floor(Math.random() * endings.length)];
 
-    const embed = {
-      color: 0xFFFFFF,
-      title: `Welcome to ${newMember.guild.name}, ${newMember.displayName}!`,
-      description: randomEnding,
-      image: { url: WELCOME_IMAGE_URL },
-      timestamp: new Date()
-    };
+    const embed = new EmbedBuilder()
+      .setColor(0xFFFFFF)
+      .setTitle(`Welcome to ${newMember.guild.name}, ${newMember.displayName}!`)
+      .setDescription(randomEnding)
+      .setImage(WELCOME_IMAGE_URL)
+      .setTimestamp();
 
     await channel.send({ embeds: [embed] });
     await channel.send({ content: `<@${newMember.id}>` });
@@ -246,14 +245,13 @@ async function checkYouTube() {
       const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
       if (!channel) return;
 
-      const embed = {
-        color: 0xFF0000,
-        title: latest.title,
-        url: latest.link,
-        description: "📢 New video uploaded! Go check it out!",
-        image: { url: latest['media:group']['media:thumbnail']['$'].url },
-        timestamp: new Date()
-      };
+      const embed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle(latest.title)
+        .setURL(latest.link)
+        .setDescription("📢 New video uploaded! Go check it out!")
+        .setImage(latest['media:group']['media:thumbnail']['$'].url)
+        .setTimestamp();
 
       await channel.send({ embeds: [embed] });
       await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
