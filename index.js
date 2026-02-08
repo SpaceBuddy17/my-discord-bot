@@ -47,8 +47,7 @@ const GUILD_ID = '1135971663050199142';
 // Welcome system
 const WELCOME_CHANNEL_ID = '1135971664132313243';
 const VERIFIED_ROLE_ID = '1137122628801405018';
-const WELCOME_BANNER_CHANNEL_ID = '1463012723226054708';
-const WELCOME_BANNER_ID = '1469863777443909783';
+const WELCOME_BANNER_URL = 'https://cdn.discordapp.com/attachments/1463012723226054708/1469863777712472114/DestinyWelcomeSlideWidescreen.jpg?ex=698934d1&is=6987e351&hm=5abdc3ed25a039eb96112a6786679bf905d9524d3f3cdc0b794ae86bf01d410f&';
 
 // YouTube system
 const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
@@ -231,7 +230,7 @@ client.on('interactionCreate', async interaction => {
         title: `Welcome to ${interaction.guild.name}, ${interaction.user.username}!`,
         description: randomEnding,
         thumbnail: { url: interaction.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
-        image: { url: `https://cdn.discordapp.com/attachments/${WELCOME_BANNER_CHANNEL_ID}/${WELCOME_BANNER_ID}/banner.png` },
+        image: { url: WELCOME_BANNER_URL },
         footer: {
           text: interaction.guild.name,
           icon_url: interaction.guild.iconURL({ dynamic: true })
@@ -288,7 +287,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
       title: `Welcome to ${newMember.guild.name}, ${newMember.displayName}!`,
       description: randomEnding,
       thumbnail: { url: newMember.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
-      image: { url: `https://cdn.discordapp.com/attachments/${WELCOME_BANNER_CHANNEL_ID}/${WELCOME_BANNER_ID}/banner.png` },
+      image: { url: WELCOME_BANNER_URL },
       footer: {
         text: newMember.guild.name,
         icon_url: newMember.guild.iconURL({ dynamic: true })
