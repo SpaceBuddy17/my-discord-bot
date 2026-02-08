@@ -79,12 +79,8 @@ client.once('ready', async () => {
   }
 
   try {
-    // Clear all existing commands in this guild
-    await guild.commands.set([]);
-    console.log('✅ Cleared all old commands');
-
-    // Register only the current commands
-    await guild.commands.set(commands);
+    await guild.commands.set([]); // clear old commands
+    await guild.commands.set(commands); // register current commands
     console.log('✅ Commands registered in test server');
   } catch (err) {
     console.error('Error registering commands:', err);
@@ -150,10 +146,13 @@ client.on('interactionCreate', async interaction => {
       }
 
       if (interaction.customId === 'confirm') {
-        await data.channel.send({
-          content: data.ping ? `<@&${data.ping.id}>` : undefined,
-          embeds: [data.embed]
-        });
+        // Send embed first
+        await data.channel.send({ embeds: [data.embed] });
+
+        // Send ping after embed
+        if (data.ping) {
+          await data.channel.send(`<@&${data.ping.id}>`);
+        }
 
         pendingBotposts.delete(interaction.user.id);
         return await interaction.update({ content: '✅ Confirmed.', embeds: [], components: [] });
