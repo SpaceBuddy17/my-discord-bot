@@ -74,12 +74,23 @@ const commands = [
 
 client.once('ready', async () => {
   const guild = client.guilds.cache.get(TEST_GUILD_ID);
-  if (guild) {
-    await guild.commands.set(commands); // instant guild registration
-    console.log('✅ Commands registered in test server');
-  } else {
+  if (!guild) {
     console.warn('⚠️ Test guild not found, commands not registered');
+    return;
   }
+
+  try {
+    // Clear all existing commands in this guild
+    await guild.commands.set([]);
+    console.log('✅ Cleared all old commands');
+
+    // Register only the current commands
+    await guild.commands.set(commands);
+    console.log('✅ Commands registered in test server');
+  } catch (err) {
+    console.error('Error registering commands:', err);
+  }
+
   console.log(`Logged in as ${client.user.tag}`);
 });
 
