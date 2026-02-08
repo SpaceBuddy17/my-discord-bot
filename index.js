@@ -13,18 +13,21 @@ const {
 const Parser = require('rss-parser');
 const fs = require('fs');
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers
-  ]
-});
-
-/* ================= CONFIG ================= */
+/* ================= ENV / CONFIG ================= */
 
 const TOKEN = process.env.BOT_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID; // Bot application ID
+const GUILD_ID = process.env.GUILD_ID;   // Server ID
+
+if (!TOKEN) {
+  console.error('❌ BOT_TOKEN is not set! Exiting...');
+  process.exit(1);
+}
+
+if (!CLIENT_ID || !GUILD_ID) {
+  console.error('❌ CLIENT_ID or GUILD_ID is not set! Exiting...');
+  process.exit(1);
+}
 
 // Admin roles allowed to use bot commands
 const ADMIN_ROLES = [
@@ -38,11 +41,6 @@ const ANON_CHANNELS = [
   '1468476714626711643',
   '1469852593235824812'
 ];
-
-// Guild ID for commands registration
-const GUILD_ID = '1135971663050199142';
-
-/* ================= YouTube / Welcome CONFIG ================= */
 
 // Welcome system
 const WELCOME_CHANNEL_ID = '1135971664132313243';
@@ -66,16 +64,23 @@ if (fs.existsSync(LAST_VIDEO_FILE)) {
     console.error('Failed to read lastVideoDate.json', err);
   }
 }
-
 function saveLastVideoDate(date) {
   lastVideoDate = date;
   fs.writeFileSync(LAST_VIDEO_FILE, JSON.stringify({ lastVideoDate: date }));
 }
 
-/* ================= BOTPOST / ANON COMMANDS ================= */
+/* ================= CLIENT ================= */
 
-const pendingBotposts = new Map();
-const anonMessages = new Map(); // id -> { content, userId, channel, messageId }
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
+  ]
+});
+
+/* ================= COMMANDS ================= */
 
 const commands = [
   new SlashCommandBuilder()
@@ -107,12 +112,32 @@ const commands = [
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-/* ================= INTERACTIONS ================= */
+/* ================= REGISTER COMMANDS ================= */
+
+async function clearAndRegisterCommands() {
+  try {
+    console.log('⚠️ Clearing old guild commands...');
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: [] });
+    console.log('✅ Cleared all commands.');
+
+    console.log('⚠️ Registering new commands...');
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+    console.log('✅ Commands registered successfully.');
+  } catch (err) {
+    console.error('❌ Error clearing/registering commands:', err);
+  }
+}
+
+/* ================= BOTPOST / ANON HANDLERS ================= */
+
+const pendingBotposts = new Map();
+const anonMessages = new Map(); // id -> { content, userId, channel, messageId }
+
+/* ---------------- INTERACTIONS ---------------- */
 
 client.on('interactionCreate', async interaction => {
   try {
     if (!interaction.member) return;
-
     const o = interaction.options;
 
     // Admin check for bot commands
@@ -121,7 +146,7 @@ client.on('interactionCreate', async interaction => {
       return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
 
-    /* ---------- BOTPOST ---------- */
+    // BOTPOST
     if (interaction.isChatInputCommand() && interaction.commandName === 'botpost') {
       let description = o.getString('description');
       if (o.getString('description2')) description += `\n\n${o.getString('description2')}`;
@@ -133,12 +158,7 @@ client.on('interactionCreate', async interaction => {
         .setDescription(description)
         .setTimestamp();
 
-      const data = {
-        embed,
-        channel: interaction.channel,
-        ping: o.getRole('ping')
-      };
-
+      const data = { embed, channel: interaction.channel, ping: o.getRole('ping') };
       pendingBotposts.set(interaction.user.id, data);
 
       const buttons = new ActionRowBuilder().addComponents(
@@ -146,15 +166,10 @@ client.on('interactionCreate', async interaction => {
         new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
       );
 
-      return await interaction.reply({
-        content: '📋 Preview',
-        embeds: [embed],
-        components: [buttons],
-        ephemeral: true
-      });
+      return await interaction.reply({ content: '📋 Preview', embeds: [embed], components: [buttons], ephemeral: true });
     }
 
-    /* ---------- CONFIRM / CANCEL ---------- */
+    // BUTTONS
     if (interaction.isButton()) {
       const data = pendingBotposts.get(interaction.user.id);
       if (!data) return;
@@ -172,12 +187,12 @@ client.on('interactionCreate', async interaction => {
       }
     }
 
-    /* ---------- PING ---------- */
+    // PING
     if (interaction.isChatInputCommand() && interaction.commandName === 'ping') {
       return interaction.reply('🏓 Pong!');
     }
 
-    /* ---------- TEST YOUTUBE ---------- */
+    // TEST YOUTUBE
     if (interaction.isChatInputCommand() && interaction.commandName === 'testyoutube') {
       const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
       if (!channel) return;
@@ -196,7 +211,7 @@ client.on('interactionCreate', async interaction => {
       return interaction.reply({ content: '✅ Test message sent', ephemeral: true });
     }
 
-    /* ---------- ANONLOOKUP ---------- */
+    // ANONLOOKUP
     if (interaction.isChatInputCommand() && interaction.commandName === 'anonlookup') {
       const msgId = o.getString('message_id');
       const record = Array.from(anonMessages.entries()).find(([id, msg]) => msg.messageId === msgId);
@@ -205,9 +220,9 @@ client.on('interactionCreate', async interaction => {
       return await interaction.reply({ content: `🕵️ Sender: <@${msg.userId}> • ID: ${anonId}`, ephemeral: true });
     }
 
-    /* ---------- PREVIEWWELCOME ---------- */
+    // PREVIEWWELCOME
     if (interaction.isChatInputCommand() && interaction.commandName === 'previewwelcome') {
-      const channel = interaction.channel; // Send preview live in same channel
+      const channel = interaction.channel;
       const welcomeEndings = [
         "We’re thrilled to have you in our community!",
         "Feel free to jump in and say hi to everyone!",
@@ -215,22 +230,19 @@ client.on('interactionCreate', async interaction => {
       ];
       const randomEnding = welcomeEndings[Math.floor(Math.random() * welcomeEndings.length)];
 
-      const previewEmbed = {
+      const embed = {
         color: 0xFFFFFF,
         title: `Welcome to ${interaction.guild.name}, ${interaction.user.username}!`,
         description: randomEnding,
         thumbnail: { url: interaction.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
         image: { url: WELCOME_BANNER_URL },
-        footer: {
-          text: interaction.guild.name,
-          icon_url: interaction.guild.iconURL({ dynamic: true })
-        },
+        footer: { text: interaction.guild.name, icon_url: interaction.guild.iconURL({ dynamic: true) } },
         timestamp: new Date()
       };
 
-      await channel.send({ embeds: [previewEmbed] });
+      await channel.send({ embeds: [embed] });
       await channel.send({ content: `<@${interaction.user.id}>` });
-      await interaction.reply({ content: '✅ Preview sent in this channel.', ephemeral: true });
+      return await interaction.reply({ content: '✅ Preview sent in this channel.', ephemeral: true });
     }
 
   } catch (err) {
@@ -239,7 +251,7 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-/* ---------- ANONYMOUS MESSAGE HANDLER ---------- */
+/* ---------------- ANONYMOUS MESSAGE HANDLER ---------------- */
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
   if (!ANON_CHANNELS.includes(message.channel.id)) return;
@@ -259,11 +271,9 @@ client.on('messageCreate', async message => {
   await message.channel.send({ embeds: [embed] });
 });
 
-/* ---------- WELCOME MESSAGE WITH BANNER AND RANDOM ENDINGS ---------- */
+/* ---------------- WELCOME MESSAGE ---------------- */
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-  if (!oldMember.roles.cache.has(VERIFIED_ROLE_ID) &&
-      newMember.roles.cache.has(VERIFIED_ROLE_ID)) {
-
+  if (!oldMember.roles.cache.has(VERIFIED_ROLE_ID) && newMember.roles.cache.has(VERIFIED_ROLE_ID)) {
     const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
     if (!channel) return;
 
@@ -280,10 +290,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
       description: randomEnding,
       thumbnail: { url: newMember.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
       image: { url: WELCOME_BANNER_URL },
-      footer: {
-        text: newMember.guild.name,
-        icon_url: newMember.guild.iconURL({ dynamic: true })
-      },
+      footer: { text: newMember.guild.name, icon_url: newMember.guild.iconURL({ dynamic: true) } },
       timestamp: new Date()
     };
 
@@ -292,18 +299,14 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   }
 });
 
-/* ---------- YOUTUBE CHECK (VOD SAFE) ---------- */
+/* ---------------- YOUTUBE CHECK ---------------- */
 async function checkYouTube() {
   try {
-    const feed = await parser.parseURL(
-      `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`
-    );
-
+    const feed = await parser.parseURL(`https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`);
     const latest = feed.items[0];
     if (!latest || !latest.pubDate) return;
 
     const published = new Date(latest.pubDate).getTime();
-
     if (!lastVideoDate || published > lastVideoDate) {
       saveLastVideoDate(published);
 
@@ -327,21 +330,12 @@ async function checkYouTube() {
   }
 }
 
-/* ================= READY ================= */
+/* ---------------- READY ---------------- */
 client.once(Events.ClientReady, async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 
-  // Automatic clear & register commands on startup
-  try {
-    console.log('Clearing & registering commands...');
-    await rest.put(
-      Routes.applicationGuildCommands(client.user.id, GUILD_ID),
-      { body: commands }
-    );
-    console.log('✅ Commands cleared & registered successfully.');
-  } catch (err) {
-    console.error('Error registering commands:', err);
-  }
+  // Automatically clear & register guild commands
+  await clearAndRegisterCommands();
 
   // Immediate YouTube check
   await checkYouTube();
