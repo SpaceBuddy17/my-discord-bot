@@ -42,7 +42,7 @@ const ANON_CHANNELS = [
 ];
 
 // Welcome system
-const WELCOME_CHANNEL_ID = '1463012723226054708';
+const WELCOME_CHANNEL_ID = '1135971664132313243';
 const VERIFIED_ROLE_ID = '1137122628801405018';
 const WELCOME_IMAGE_URL = 'https://cdn.discordapp.com/attachments/1463012723226054708/1469863777712472114/DestinyWelcomeSlideWidescreen.jpg?ex=698934d1&is=6987e351&hm=5abdc3ed25a039eb96112a6786679bf905d9524d3f3cdc0b794ae86bf01d410f&';
 
@@ -92,10 +92,6 @@ const commands = [
     .addStringOption(o => o.setName('description2').setDescription('Secondary description (optional)').setRequired(false))
     .addStringOption(o => o.setName('link').setDescription('Optional website link').setRequired(false))
     .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false)),
-
-  new SlashCommandBuilder()
-    .setName('previewwelcome')
-    .setDescription('Preview the welcome message'),
 
   new SlashCommandBuilder()
     .setName('anonlookup')
@@ -169,18 +165,6 @@ client.on(Events.InteractionCreate, async interaction => {
       pendingBotposts.delete(interaction.user.id);
       return interaction.update({ content: '✅ Confirmed.', embeds: [], components: [] });
     }
-  }
-
-  /* ---------- PREVIEW WELCOME ---------- */
-  if (interaction.isChatInputCommand() && interaction.commandName === 'previewwelcome') {
-    const embed = new EmbedBuilder()
-      .setColor(0xFFFFFF)
-      .setTitle(`Welcome to ${interaction.guild.name}!`)
-      .setDescription("We’re thrilled to have you here! Feel free to jump in and say hello!")
-      .setImage(WELCOME_IMAGE_URL)
-      .setTimestamp();
-
-    return interaction.reply({ embeds: [embed], ephemeral: true });
   }
 
   /* ---------- ANON LOOKUP ---------- */
