@@ -47,7 +47,6 @@ function hasAdminRole(member) {
 function pacificToUTC(mmddyyyy, time24) {
   const [m, d, y] = mmddyyyy.split('-').map(Number);
   const [hh, mm] = time24.split(':').map(Number);
-
   const base = new Date(Date.UTC(y, m - 1, d, hh, mm));
   const offset = new Date(base.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
   return offset;
@@ -71,20 +70,20 @@ const commands = [
   new SlashCommandBuilder()
     .setName('botpost')
     .setDescription('Send a bot message')
-    .addStringOption(o => o.setName('title').setRequired(true))
-    .addStringOption(o => o.setName('description').setRequired(true))
-    .addStringOption(o => o.setName('description2'))
-    .addStringOption(o => o.setName('link'))
-    .addRoleOption(o => o.setName('ping')),
+    .addStringOption(o => o.setName('title').setDescription('Title of the embed').setRequired(true))
+    .addStringOption(o => o.setName('description').setDescription('Primary description of the embed').setRequired(true))
+    .addStringOption(o => o.setName('description2').setDescription('Secondary description of the embed (optional)'))
+    .addStringOption(o => o.setName('link').setDescription('Optional website link'))
+    .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping')),
 
   new SlashCommandBuilder()
     .setName('schedulebotpost')
     .setDescription('Schedule a botpost (Pacific Time)')
-    .addStringOption(o => o.setName('title').setRequired(true))
-    .addStringOption(o => o.setName('description').setRequired(true))
-    .addStringOption(o => o.setName('description2'))
-    .addStringOption(o => o.setName('link'))
-    .addRoleOption(o => o.setName('ping'))
+    .addStringOption(o => o.setName('title').setDescription('Title of the embed').setRequired(true))
+    .addStringOption(o => o.setName('description').setDescription('Primary description').setRequired(true))
+    .addStringOption(o => o.setName('description2').setDescription('Secondary description (optional)'))
+    .addStringOption(o => o.setName('link').setDescription('Optional website link'))
+    .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping'))
     .addStringOption(o => o.setName('date').setDescription('MM-DD-YYYY').setRequired(true))
     .addStringOption(o => o.setName('time').setDescription('HH:MM 24h').setRequired(true)),
 
@@ -95,19 +94,19 @@ const commands = [
   new SlashCommandBuilder()
     .setName('cancelscheduledpost')
     .setDescription('Cancel a scheduled post')
-    .addStringOption(o => o.setName('id').setRequired(true)),
+    .addStringOption(o => o.setName('id').setDescription('Scheduled post ID').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('editscheduledpost')
     .setDescription('Edit a scheduled post')
-    .addStringOption(o => o.setName('id').setRequired(true))
-    .addStringOption(o => o.setName('title'))
-    .addStringOption(o => o.setName('description'))
-    .addStringOption(o => o.setName('description2'))
-    .addStringOption(o => o.setName('link'))
-    .addRoleOption(o => o.setName('ping'))
-    .addStringOption(o => o.setName('date').setDescription('MM-DD-YYYY'))
-    .addStringOption(o => o.setName('time').setDescription('HH:MM 24h')),
+    .addStringOption(o => o.setName('id').setDescription('Scheduled post ID').setRequired(true))
+    .addStringOption(o => o.setName('title').setDescription('New title (optional)'))
+    .addStringOption(o => o.setName('description').setDescription('New description (optional)'))
+    .addStringOption(o => o.setName('description2').setDescription('New secondary description (optional)'))
+    .addStringOption(o => o.setName('link').setDescription('New website link (optional)'))
+    .addRoleOption(o => o.setName('ping').setDescription('New role to ping (optional)'))
+    .addStringOption(o => o.setName('date').setDescription('New date MM-DD-YYYY (optional)'))
+    .addStringOption(o => o.setName('time').setDescription('New time HH:MM 24h (optional)')),
 
   new ContextMenuCommandBuilder()
     .setName('Lookup Anonymous Sender')
@@ -116,7 +115,7 @@ const commands = [
 
 /* ============== READY ================= */
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   await client.application.commands.set(commands);
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
@@ -129,7 +128,7 @@ client.on('interactionCreate', async interaction => {
     return interaction.reply({ content: '❌ No permission.', ephemeral: true });
   }
 
-  /* ---------- CREATE / SCHEDULE ---------- */
+  // ---------- CREATE / SCHEDULE ----------
   if (interaction.isChatInputCommand() &&
       ['botpost', 'schedulebotpost'].includes(interaction.commandName)) {
 
@@ -172,7 +171,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  /* ---------- EDIT SCHEDULED ---------- */
+  // ---------- EDIT SCHEDULED ----------
   if (interaction.isChatInputCommand() &&
       interaction.commandName === 'editscheduledpost') {
 
@@ -219,7 +218,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  /* ---------- CONFIRM ---------- */
+  // ---------- CONFIRM ----------
   if (interaction.isButton()) {
     const data = pendingBotposts.get(interaction.user.id);
     if (!data) return;
@@ -244,7 +243,7 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  /* ---------- LIST ---------- */
+  // ---------- LIST ----------
   if (interaction.isChatInputCommand() &&
       interaction.commandName === 'listscheduledposts') {
 
@@ -259,7 +258,7 @@ client.on('interactionCreate', async interaction => {
     return interaction.reply({ content: text, ephemeral: true });
   }
 
-  /* ---------- CANCEL ---------- */
+  // ---------- CANCEL ----------
   if (interaction.isChatInputCommand() &&
       interaction.commandName === 'cancelscheduledpost') {
 
