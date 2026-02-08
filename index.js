@@ -72,7 +72,7 @@ function saveLastVideoDate(date) {
   fs.writeFileSync(LAST_VIDEO_FILE, JSON.stringify({ lastVideoDate: date }));
 }
 
-/* ================= BOTPOST COMMAND ================= */
+/* ================= BOTPOST / ANON COMMANDS ================= */
 
 const pendingBotposts = new Map();
 const anonMessages = new Map(); // id -> { content, userId, channel, messageId }
@@ -106,17 +106,6 @@ const commands = [
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-
-/* ================= REGISTER COMMANDS ================= */
-
-(async () => {
-  try {
-    await rest.put(Routes.applicationGuildCommands(client.user?.id || 'BOT_CLIENT_ID', GUILD_ID), { body: commands });
-    console.log('✅ Slash commands registered');
-  } catch (err) {
-    console.error('Error registering commands:', err);
-  }
-})();
 
 /* ================= INTERACTIONS ================= */
 
@@ -218,6 +207,7 @@ client.on('interactionCreate', async interaction => {
 
     /* ---------- PREVIEWWELCOME ---------- */
     if (interaction.isChatInputCommand() && interaction.commandName === 'previewwelcome') {
+      const channel = interaction.channel; // Send preview live in same channel
       const welcomeEndings = [
         "We’re thrilled to have you in our community!",
         "Feel free to jump in and say hi to everyone!",
@@ -238,7 +228,9 @@ client.on('interactionCreate', async interaction => {
         timestamp: new Date()
       };
 
-      await interaction.reply({ embeds: [previewEmbed], ephemeral: true });
+      await channel.send({ embeds: [previewEmbed] });
+      await channel.send({ content: `<@${interaction.user.id}>` });
+      await interaction.reply({ content: '✅ Preview sent in this channel.', ephemeral: true });
     }
 
   } catch (err) {
@@ -338,6 +330,17 @@ async function checkYouTube() {
 /* ================= READY ================= */
 client.once(Events.ClientReady, async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
+
+  // Register commands AFTER ready
+  try {
+    await rest.put(
+      Routes.applicationGuildCommands(client.user.id, GUILD_ID),
+      { body: commands }
+    );
+    console.log('✅ Slash commands registered');
+  } catch (err) {
+    console.error('Error registering commands:', err);
+  }
 
   // Immediate YouTube check
   await checkYouTube();
