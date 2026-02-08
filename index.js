@@ -331,13 +331,14 @@ async function checkYouTube() {
 client.once(Events.ClientReady, async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 
-  // Register commands AFTER ready
+  // Automatic clear & register commands on startup
   try {
+    console.log('Clearing & registering commands...');
     await rest.put(
       Routes.applicationGuildCommands(client.user.id, GUILD_ID),
       { body: commands }
     );
-    console.log('✅ Slash commands registered');
+    console.log('✅ Commands cleared & registered successfully.');
   } catch (err) {
     console.error('Error registering commands:', err);
   }
