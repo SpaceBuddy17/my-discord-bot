@@ -31,7 +31,8 @@ const ADMIN_ROLES = [
 // Anonymous channels
 const ANON_CHANNELS = [
   '1135983739843915846',
-  '1468476714626711643'
+  '1468476714626711643',
+  '1469852593235824812'
 ];
 
 // Guild ID for instant command registration
@@ -41,7 +42,7 @@ const TEST_GUILD_ID = '1135971663050199142'; // your Discord server ID
 
 const pendingBotposts = new Map();
 const scheduledPosts = [];
-const anonMessages = new Map(); // id -> { content, userId, channel }
+const anonMessages = new Map(); // id -> { content, userId, channel, messageId }
 
 /* =============== HELPERS ================= */
 
@@ -276,6 +277,28 @@ client.on('interactionCreate', async interaction => {
     console.error('Interaction error:', err);
     if (!interaction.replied) await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true });
   }
+});
+
+/* ---------- ANONYMOUS MESSAGE HANDLER (EMBED) ---------- */
+client.on('messageCreate', async message => {
+  if (message.author.bot) return;
+  if (!ANON_CHANNELS.includes(message.channel.id)) return;
+
+  const anonId = makeId();
+  anonMessages.set(anonId, { content: message.content, userId: message.author.id, channel: message.channel, messageId: message.id });
+
+  // Delete the original user message
+  await message.delete().catch(() => {});
+
+  // Repost anonymously as an embed
+  const embed = new EmbedBuilder()
+    .setColor(0x7289da) // Discord blurple
+    .setTitle('✉️ Anonymous Message')
+    .setDescription(message.content)
+    .setFooter({ text: `ID: ${anonId}` })
+    .setTimestamp();
+
+  await message.channel.send({ embeds: [embed] });
 });
 
 /* ============ SCHEDULER LOOP ============== */
