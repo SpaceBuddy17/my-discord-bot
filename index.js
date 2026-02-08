@@ -3,12 +3,10 @@ const {
   GatewayIntentBits,
   SlashCommandBuilder,
   Events,
+  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-  REST,
-  Routes
+  ButtonStyle
 } = require('discord.js');
 const Parser = require('rss-parser');
 const fs = require('fs');
@@ -16,9 +14,9 @@ const fs = require('fs');
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
   ]
 });
 
@@ -41,44 +39,38 @@ const ANON_CHANNELS = [
   '1469852593235824812'
 ];
 
-// Welcome system
+// Welcome
 const WELCOME_CHANNEL_ID = '1135971664132313243';
 const VERIFIED_ROLE_ID = '1137122628801405018';
-const WELCOME_IMAGE_URL = 'https://cdn.discordapp.com/attachments/1463012723226054708/1469863777712472114/DestinyWelcomeSlideWidescreen.jpg?ex=698934d1&is=6987e351&hm=5abdc3ed25a039eb96112a6786679bf905d9524d3f3cdc0b794ae86bf01d410f&';
+const WELCOME_BANNER = 'https://cdn.discordapp.com/attachments/1463012723226054708/1469863777712472114/DestinyWelcomeSlideWidescreen.jpg?ex=698934d1&is=6987e351&hm=5abdc3ed25a039eb96112a6786679bf905d9524d3f3cdc0b794ae86bf01d410f&';
 
-// YouTube system
+// YouTube
 const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
 const YOUTUBE_POST_CHANNEL_ID = '1135971664132313240';
 const MEDIA_ROLE_ID = '1467324932965929033';
-
 const parser = new Parser();
 
-/* ================= PERSISTENT DATA ================= */
-
-const pendingBotposts = new Map();
-const anonMessages = new Map();
+// Last video tracking
 const LAST_VIDEO_FILE = './lastVideoDate.json';
 let lastVideoDate = null;
-
 if (fs.existsSync(LAST_VIDEO_FILE)) {
   try {
     lastVideoDate = JSON.parse(fs.readFileSync(LAST_VIDEO_FILE, 'utf8')).lastVideoDate;
-  } catch (err) {
-    console.error('Failed to read lastVideoDate.json', err);
-  }
+  } catch {}
 }
-
 function saveLastVideoDate(date) {
   lastVideoDate = date;
   fs.writeFileSync(LAST_VIDEO_FILE, JSON.stringify({ lastVideoDate: date }));
 }
 
+// Pending and anonymous messages
+const pendingBotposts = new Map();
+const anonMessages = new Map();
+
+/* ================= HELPERS ================= */
+
 function hasAdminRole(member) {
   return member.roles.cache.some(r => ADMIN_ROLES.includes(r.id));
-}
-
-function makeId() {
-  return 'SP-' + Math.random().toString(36).slice(2, 7).toUpperCase();
 }
 
 /* ================= SLASH COMMANDS ================= */
@@ -86,48 +78,47 @@ function makeId() {
 const commands = [
   new SlashCommandBuilder()
     .setName('botpost')
-    .setDescription('Send a bot message')
-    .addStringOption(o => o.setName('title').setDescription('Title of the embed').setRequired(true))
-    .addStringOption(o => o.setName('description').setDescription('Primary description (multi-line allowed)').setRequired(true))
+    .setDescription('Send a bot embed message')
+    .addStringOption(o => o.setName('title').setDescription('Embed title').setRequired(true))
+    .addStringOption(o => o.setName('description').setDescription('Primary description').setRequired(true))
     .addStringOption(o => o.setName('description2').setDescription('Secondary description (optional)').setRequired(false))
-    .addStringOption(o => o.setName('link').setDescription('Optional website link').setRequired(false))
+    .addStringOption(o => o.setName('link').setDescription('Optional link').setRequired(false))
     .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false)),
 
   new SlashCommandBuilder()
     .setName('anonlookup')
-    .setDescription('Lookup an anonymous message sender')
-    .addStringOption(o => o.setName('id').setDescription('Anonymous message ID').setRequired(true))
-].map(c => c.toJSON());
+    .setDescription('Lookup anonymous message sender'),
 
+  new SlashCommandBuilder()
+    .setName('poll')
+    .setDescription('Create a simple poll')
+    .addStringOption(o => o.setName('question').setDescription('Poll question').setRequired(true))
+    .addStringOption(o => o.setName('options').setDescription('Comma-separated options, up to 10').setRequired(true))
+].map(cmd => cmd.toJSON());
+
+/* ============ REGISTER COMMANDS ============ */
+const { REST } = require('discord.js');
+const { Routes } = require('discord.js');
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-
 (async () => {
-  try {
-    await rest.put(
-      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-      { body: commands }
-    );
-    console.log('✅ Slash commands registered');
-  } catch (err) {
-    console.error('Error registering commands:', err);
-  }
+  await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+  console.log('✅ Slash commands registered');
 })();
 
-/* ================= INTERACTIONS ================= */
+/* ============ INTERACTIONS ============ */
 
 client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
+  if (!interaction.isChatInputCommand()) return;
 
   const o = interaction.options;
 
-  // Permissions check for admin-only commands
-  if (interaction.isChatInputCommand() && !hasAdminRole(interaction.member) &&
-      ['botpost'].includes(interaction.commandName)) {
+  // Permission check
+  if (['botpost', 'poll', 'anonlookup'].includes(interaction.commandName) && !hasAdminRole(interaction.member)) {
     return interaction.reply({ content: '❌ No permission.', ephemeral: true });
   }
 
-  /* ---------- BOTPOST ---------- */
-  if (interaction.isChatInputCommand() && interaction.commandName === 'botpost') {
+  // BOTPOST
+  if (interaction.commandName === 'botpost') {
     let description = o.getString('description');
     if (o.getString('description2')) description += `\n\n${o.getString('description2')}`;
     if (o.getString('link')) description += `\n\n[Website Link](${o.getString('link')})`;
@@ -138,84 +129,77 @@ client.on(Events.InteractionCreate, async interaction => {
       .setDescription(description)
       .setTimestamp();
 
-    const data = { embed, channel: interaction.channel, ping: o.getRole('ping') };
-    pendingBotposts.set(interaction.user.id, data);
-
-    const buttons = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
-    );
-
-    return interaction.reply({ content: '📋 Preview', embeds: [embed], components: [buttons], ephemeral: true });
+    await interaction.channel.send({ embeds: [embed] });
+    const role = o.getRole('ping');
+    if (role) await interaction.channel.send({ content: `<@&${role.id}>` });
+    return interaction.reply({ content: '✅ Embed sent.', ephemeral: true });
   }
 
-  /* ---------- CONFIRM/CANCEL BOTPOST ---------- */
-  if (interaction.isButton()) {
-    const data = pendingBotposts.get(interaction.user.id);
-    if (!data) return;
+  // POLL
+  if (interaction.commandName === 'poll') {
+    const question = o.getString('question');
+    const options = o.getString('options').split(',').map(opt => opt.trim()).slice(0, 10);
+    const emojis = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+    const description = options.map((opt, i) => `${emojis[i]} ${opt}`).join('\n');
 
-    if (interaction.customId === 'cancel') {
-      pendingBotposts.delete(interaction.user.id);
-      return interaction.update({ content: '❌ Canceled.', embeds: [], components: [] });
-    }
+    const embed = new EmbedBuilder()
+      .setTitle(question)
+      .setDescription(description)
+      .setColor(0x00FF00)
+      .setTimestamp();
 
-    if (interaction.customId === 'confirm') {
-      await data.channel.send({ embeds: [data.embed] });
-      if (data.ping) await data.channel.send({ content: `<@&${data.ping.id}>` });
-      pendingBotposts.delete(interaction.user.id);
-      return interaction.update({ content: '✅ Confirmed.', embeds: [], components: [] });
-    }
+    const pollMessage = await interaction.channel.send({ embeds: [embed] });
+    for (let i = 0; i < options.length; i++) await pollMessage.react(emojis[i]);
   }
 
-  /* ---------- ANON LOOKUP ---------- */
-  if (interaction.isChatInputCommand() && interaction.commandName === 'anonlookup') {
-    const id = o.getString('id');
-    const record = anonMessages.get(id);
+  // ANONYMOUS LOOKUP
+  if (interaction.commandName === 'anonlookup') {
+    const record = Array.from(anonMessages.entries())[0]; // simple example, adapt to your storage
     if (!record) return interaction.reply({ content: '❌ Could not find sender.', ephemeral: true });
-    return interaction.reply({ content: `🕵️ Sender: <@${record.userId}> • ID: ${id}`, ephemeral: true });
+    const [anonId, msg] = record;
+    return interaction.reply({ content: `🕵️ Sender: <@${msg.userId}> • ID: ${anonId}`, ephemeral: true });
   }
 });
 
-/* ================= ANONYMOUS CHANNEL HANDLER ================= */
+/* ============ ANONYMOUS MESSAGES ============ */
 
 client.on(Events.MessageCreate, async message => {
-  if (!ANON_CHANNELS.includes(message.channelId) || message.author.bot) return;
-
-  const anonId = makeId();
-  anonMessages.set(anonId, { content: message.content, userId: message.author.id, channel: message.channel });
-  await message.delete();
-  await message.channel.send({ content: message.content });
+  if (ANON_CHANNELS.includes(message.channelId) && !message.author.bot) {
+    const anonId = `ANON-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    anonMessages.set(anonId, { content: message.content, userId: message.author.id, channel: message.channel });
+    await message.delete();
+    await message.channel.send({ content: `✉️ Sent anonymously • ID: ${anonId}` });
+  }
 });
 
-/* ================= WELCOME MESSAGE ================= */
+/* ============ WELCOME MESSAGE ============ */
 
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-  if (!oldMember.roles.cache.has(VERIFIED_ROLE_ID) &&
-      newMember.roles.cache.has(VERIFIED_ROLE_ID)) {
+  const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+  if (!channel) return;
 
-    const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
-    if (!channel) return;
-
-    const endings = [
+  if (!oldMember.roles.cache.has(VERIFIED_ROLE_ID) && newMember.roles.cache.has(VERIFIED_ROLE_ID)) {
+    const welcomeEndings = [
       "We’re thrilled to have you in our community!",
       "Feel free to jump in and say hi to everyone!",
       "Glad you joined us — we hope you enjoy your time here!"
     ];
-    const randomEnding = endings[Math.floor(Math.random() * endings.length)];
+    const randomEnding = welcomeEndings[Math.floor(Math.random() * welcomeEndings.length)];
 
-    const embed = new EmbedBuilder()
+    const welcomeEmbed = new EmbedBuilder()
       .setColor(0xFFFFFF)
       .setTitle(`Welcome to ${newMember.guild.name}, ${newMember.displayName}!`)
       .setDescription(randomEnding)
-      .setImage(WELCOME_IMAGE_URL)
+      .setImage(WELCOME_BANNER)
+      .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true, size: 1024 }))
       .setTimestamp();
 
-    await channel.send({ embeds: [embed] });
+    await channel.send({ embeds: [welcomeEmbed] });
     await channel.send({ content: `<@${newMember.id}>` });
   }
 });
 
-/* ================= YOUTUBE CHECK ================= */
+/* ============ YOUTUBE CHECK (VOD SAFE) ============ */
 
 async function checkYouTube() {
   try {
@@ -240,19 +224,17 @@ async function checkYouTube() {
       await channel.send({ embeds: [embed] });
       await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
     }
-  } catch (err) {
-    console.error('YouTube check failed:', err);
-  }
+  } catch (err) { console.error('YouTube check failed:', err); }
 }
 
-/* ================= READY ================= */
+/* ============ READY ============ */
 
 client.once(Events.ClientReady, async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
   await checkYouTube();
-  setInterval(checkYouTube, 5 * 60 * 1000);
+  setInterval(checkYouTube, 5 * 60 * 1000); // every 5 mins
 });
 
-/* ================= LOGIN ================= */
+/* ============ LOGIN ============ */
 
 client.login(TOKEN);
