@@ -22,15 +22,20 @@ const client = new Client({
 
 const TOKEN = process.env.BOT_TOKEN;
 
+// Admin roles allowed to use bot commands
 const ADMIN_ROLES = [
   '1318997119566090270',
   '1136004041395159140'
 ];
 
+// Anonymous channels
 const ANON_CHANNELS = [
   '1135983739843915846',
   '1468476714626711643'
 ];
+
+// Guild ID for instant command registration
+const TEST_GUILD_ID = '1135971663050199142'; // your Discord server ID
 
 /* ========================================== */
 
@@ -116,8 +121,14 @@ const commands = [
 /* ============== READY ================= */
 
 client.once('ready', async () => {
-  await client.application.commands.set(commands);
-  console.log(`✅ Logged in as ${client.user.tag}`);
+  const guild = client.guilds.cache.get(TEST_GUILD_ID);
+  if (guild) {
+    await guild.commands.set(commands); // instant guild registration
+    console.log('✅ Commands registered in test server');
+  } else {
+    console.warn('⚠️ Test guild not found, commands not registered');
+  }
+  console.log(`Logged in as ${client.user.tag}`);
 });
 
 /* ============ INTERACTIONS ============== */
@@ -126,13 +137,13 @@ client.on('interactionCreate', async interaction => {
   try {
     if (!interaction.member) return;
 
-    // Admin check for relevant commands
+    const o = interaction.options;
+
+    // Admin check
     if ((interaction.isChatInputCommand() || interaction.isMessageContextMenuCommand()) &&
         !hasAdminRole(interaction.member)) {
       return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
-
-    const o = interaction.options;
 
     /* ---------- BOTPOST & SCHEDULE PREVIEW ---------- */
     if (interaction.isChatInputCommand() &&
@@ -250,14 +261,6 @@ client.on('interactionCreate', async interaction => {
       if (idx === -1) return await interaction.reply({ content: '❌ ID not found.', ephemeral: true });
       scheduledPosts.splice(idx, 1);
       return await interaction.reply({ content: `✅ Canceled ${id}`, ephemeral: true });
-    }
-
-    /* ---------- ANONYMOUS CHANNELS ---------- */
-    if (interaction.isChatInputCommand() && interaction.commandName === 'anonmessage' && ANON_CHANNELS.includes(interaction.channelId)) {
-      const content = o.getString('message');
-      const anonId = makeId();
-      anonMessages.set(anonId, { content, userId: interaction.user.id, channel: interaction.channel });
-      return await interaction.reply({ content: `✉️ Sent anonymously • ID: ${anonId}`, ephemeral: true });
     }
 
     /* ---------- LOOKUP ANONYMOUS ---------- */
