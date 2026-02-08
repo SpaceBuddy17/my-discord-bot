@@ -2,8 +2,6 @@ const {
   Client,
   GatewayIntentBits,
   SlashCommandBuilder,
-  ContextMenuCommandBuilder,
-  ApplicationCommandType,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
@@ -58,16 +56,17 @@ function makeId() {
 const commands = [
   new SlashCommandBuilder()
     .setName('botpost')
-    .setDescription('Send a bot message')
+    .setDescription('Send a bot message as an embed')
     .addStringOption(o => o.setName('title').setDescription('Title of the embed').setRequired(true))
     .addStringOption(o => o.setName('description').setDescription('Primary description (multi-line allowed)').setRequired(true))
     .addStringOption(o => o.setName('description2').setDescription('Secondary description (optional)').setRequired(false))
     .addStringOption(o => o.setName('link').setDescription('Optional website link').setRequired(false))
     .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false)),
 
-  new ContextMenuCommandBuilder()
-    .setName('Lookup Anonymous Sender')
-    .setType(ApplicationCommandType.Message)
+  new SlashCommandBuilder()
+    .setName('anonlookup')
+    .setDescription('Lookup the sender of an anonymous message')
+    .addStringOption(o => o.setName('message_id').setDescription('ID of the anonymous message').setRequired(true))
 ];
 
 /* ============== READY ================= */
@@ -103,14 +102,12 @@ client.on('interactionCreate', async interaction => {
     const o = interaction.options;
 
     // Admin check
-    if ((interaction.isChatInputCommand() || interaction.isMessageContextMenuCommand()) &&
-        !hasAdminRole(interaction.member)) {
+    if (interaction.isChatInputCommand() && !hasAdminRole(interaction.member)) {
       return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
 
-    /* ---------- BOTPOST ---------- */
+    /* ---------- BOTPOST (embed only) ---------- */
     if (interaction.isChatInputCommand() && interaction.commandName === 'botpost') {
-
       let description = o.getString('description');
       if (o.getString('description2')) description += `\n\n${o.getString('description2')}`;
       if (o.getString('link')) description += `\n\n[Website Link](${o.getString('link')})`;
@@ -163,10 +160,10 @@ client.on('interactionCreate', async interaction => {
       }
     }
 
-    /* ---------- LOOKUP ANONYMOUS ---------- */
-    if (interaction.isMessageContextMenuCommand() && interaction.commandName === 'Lookup Anonymous Sender') {
-      const messageId = interaction.targetId;
-      const record = Array.from(anonMessages.entries()).find(([id, msg]) => msg.messageId === messageId);
+    /* ---------- ANONLOOKUP ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'anonlookup') {
+      const msgId = o.getString('message_id');
+      const record = Array.from(anonMessages.entries()).find(([id, msg]) => msg.messageId === msgId);
       if (!record) return await interaction.reply({ content: '❌ Could not find sender.', ephemeral: true });
       const [anonId, msg] = record;
       return await interaction.reply({ content: `🕵️ Sender: <@${msg.userId}> • ID: ${anonId}`, ephemeral: true });
