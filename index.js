@@ -41,29 +41,12 @@ const TEST_GUILD_ID = '1135971663050199142'; // your Discord server ID
 /* ========================================== */
 
 const pendingBotposts = new Map();
-const scheduledPosts = [];
 const anonMessages = new Map(); // id -> { content, userId, channel, messageId }
 
 /* =============== HELPERS ================= */
 
 function hasAdminRole(member) {
   return member.roles.cache.some(r => ADMIN_ROLES.includes(r.id));
-}
-
-function pacificToUTC(mmddyyyy, time24) {
-  const [m, d, y] = mmddyyyy.split('-').map(Number);
-  const [hh, mm] = time24.split(':').map(Number);
-  const pacific = new Date(Date.UTC(y, m - 1, d, hh, mm));
-  const offset = new Date(pacific.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-  return offset;
-}
-
-function formatPacific(date) {
-  return date.toLocaleString('en-US', {
-    timeZone: 'America/Los_Angeles',
-    dateStyle: 'short',
-    timeStyle: 'short'
-  });
 }
 
 function makeId() {
@@ -81,38 +64,6 @@ const commands = [
     .addStringOption(o => o.setName('description2').setDescription('Secondary description (optional)').setRequired(false))
     .addStringOption(o => o.setName('link').setDescription('Optional website link').setRequired(false))
     .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false)),
-
-  new SlashCommandBuilder()
-    .setName('schedulebotpost')
-    .setDescription('Schedule a botpost (Pacific Time)')
-    .addStringOption(o => o.setName('title').setDescription('Title of the embed').setRequired(true))
-    .addStringOption(o => o.setName('description').setDescription('Primary description').setRequired(true))
-    .addStringOption(o => o.setName('description2').setDescription('Secondary description (optional)').setRequired(false))
-    .addStringOption(o => o.setName('link').setDescription('Optional website link').setRequired(false))
-    .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false))
-    .addStringOption(o => o.setName('date').setDescription('MM-DD-YYYY').setRequired(true))
-    .addStringOption(o => o.setName('time').setDescription('HH:MM 24h').setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName('listscheduledposts')
-    .setDescription('List scheduled botposts'),
-
-  new SlashCommandBuilder()
-    .setName('cancelscheduledpost')
-    .setDescription('Cancel a scheduled post')
-    .addStringOption(o => o.setName('id').setDescription('Scheduled post ID').setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName('editscheduledpost')
-    .setDescription('Edit a scheduled post')
-    .addStringOption(o => o.setName('id').setDescription('Scheduled post ID').setRequired(true))
-    .addStringOption(o => o.setName('title').setDescription('New title (optional)').setRequired(false))
-    .addStringOption(o => o.setName('description').setDescription('New description (optional)').setRequired(false))
-    .addStringOption(o => o.setName('description2').setDescription('New secondary description (optional)').setRequired(false))
-    .addStringOption(o => o.setName('link').setDescription('New website link (optional)').setRequired(false))
-    .addRoleOption(o => o.setName('ping').setDescription('New role to ping (optional)').setRequired(false))
-    .addStringOption(o => o.setName('date').setDescription('New date MM-DD-YYYY (optional)').setRequired(false))
-    .addStringOption(o => o.setName('time').setDescription('New time HH:MM 24h (optional)').setRequired(false)),
 
   new ContextMenuCommandBuilder()
     .setName('Lookup Anonymous Sender')
@@ -146,9 +97,8 @@ client.on('interactionCreate', async interaction => {
       return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
 
-    /* ---------- BOTPOST & SCHEDULE PREVIEW ---------- */
-    if (interaction.isChatInputCommand() &&
-        ['botpost', 'schedulebotpost'].includes(interaction.commandName)) {
+    /* ---------- BOTPOST ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'botpost') {
 
       let description = o.getString('description');
       if (o.getString('description2')) description += `\n\n${o.getString('description2')}`;
@@ -160,16 +110,10 @@ client.on('interactionCreate', async interaction => {
         .setDescription(description)
         .setTimestamp();
 
-      const when = interaction.commandName === 'schedulebotpost'
-        ? pacificToUTC(o.getString('date'), o.getString('time'))
-        : null;
-
       const data = {
-        id: when ? makeId() : null,
         embed,
         channel: interaction.channel,
-        ping: o.getRole('ping'),
-        when
+        ping: o.getRole('ping')
       };
 
       pendingBotposts.set(interaction.user.id, data);
@@ -180,41 +124,8 @@ client.on('interactionCreate', async interaction => {
       );
 
       return await interaction.reply({
-        content: when ? `⏰ ${formatPacific(when)} • ID: ${data.id}` : '📋 Preview',
+        content: '📋 Preview',
         embeds: [embed],
-        components: [buttons],
-        ephemeral: true
-      });
-    }
-
-    /* ---------- EDIT SCHEDULED ---------- */
-    if (interaction.isChatInputCommand() &&
-        interaction.commandName === 'editscheduledpost') {
-
-      const id = o.getString('id');
-      const post = scheduledPosts.find(p => p.id === id);
-      if (!post) return await interaction.reply({ content: '❌ Scheduled post not found.', ephemeral: true });
-
-      if (o.getString('title')) post.embed.setTitle(o.getString('title'));
-      let desc = o.getString('description');
-      if (desc) {
-        if (o.getString('description2')) desc += `\n\n${o.getString('description2')}`;
-        if (o.getString('link')) desc += `\n\n[Website Link](${o.getString('link')})`;
-        post.embed.setDescription(desc);
-      }
-      if (o.getRole('ping')) post.ping = o.getRole('ping');
-      if (o.getString('date') && o.getString('time')) post.when = pacificToUTC(o.getString('date'), o.getString('time'));
-
-      pendingBotposts.set(interaction.user.id, post);
-
-      const buttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
-      );
-
-      return await interaction.reply({
-        content: `✏️ **Editing ${id}** — confirm changes`,
-        embeds: [post.embed],
         components: [buttons],
         ephemeral: true
       });
@@ -231,37 +142,14 @@ client.on('interactionCreate', async interaction => {
       }
 
       if (interaction.customId === 'confirm') {
-        if (data.when && !scheduledPosts.includes(data)) scheduledPosts.push(data);
-        else if (!data.when) {
-          await data.channel.send({
-            content: data.ping ? `<@&${data.ping.id}>` : undefined,
-            embeds: [data.embed]
-          });
-        }
+        await data.channel.send({
+          content: data.ping ? `<@&${data.ping.id}>` : undefined,
+          embeds: [data.embed]
+        });
 
         pendingBotposts.delete(interaction.user.id);
         return await interaction.update({ content: '✅ Confirmed.', embeds: [], components: [] });
       }
-    }
-
-    /* ---------- LIST SCHEDULED ---------- */
-    if (interaction.isChatInputCommand() && interaction.commandName === 'listscheduledposts') {
-      if (!scheduledPosts.length) return await interaction.reply({ content: 'No scheduled posts.', ephemeral: true });
-
-      const text = scheduledPosts.map(p =>
-        `🆔 **${p.id}** — ${p.embed.data.title}\n<#${p.channel.id}> • ${formatPacific(p.when)}`
-      ).join('\n\n');
-
-      return await interaction.reply({ content: text, ephemeral: true });
-    }
-
-    /* ---------- CANCEL SCHEDULED ---------- */
-    if (interaction.isChatInputCommand() && interaction.commandName === 'cancelscheduledpost') {
-      const id = o.getString('id');
-      const idx = scheduledPosts.findIndex(p => p.id === id);
-      if (idx === -1) return await interaction.reply({ content: '❌ ID not found.', ephemeral: true });
-      scheduledPosts.splice(idx, 1);
-      return await interaction.reply({ content: `✅ Canceled ${id}`, ephemeral: true });
     }
 
     /* ---------- LOOKUP ANONYMOUS ---------- */
@@ -292,7 +180,7 @@ client.on('messageCreate', async message => {
 
   // Repost anonymously as an embed
   const embed = new EmbedBuilder()
-    .setColor(0x7289da) // Discord blurple
+    .setColor(0x7289da)
     .setTitle('✉️ Anonymous Message')
     .setDescription(message.content)
     .setFooter({ text: `ID: ${anonId}` })
@@ -300,22 +188,6 @@ client.on('messageCreate', async message => {
 
   await message.channel.send({ embeds: [embed] });
 });
-
-/* ============ SCHEDULER LOOP ============== */
-
-setInterval(async () => {
-  const now = Date.now();
-  for (let i = scheduledPosts.length - 1; i >= 0; i--) {
-    if (scheduledPosts[i].when <= now) {
-      const p = scheduledPosts[i];
-      await p.channel.send({
-        content: p.ping ? `<@&${p.ping.id}>` : undefined,
-        embeds: [p.embed]
-      });
-      scheduledPosts.splice(i, 1);
-    }
-  }
-}, 30_000);
 
 /* =============== LOGIN ================= */
 
