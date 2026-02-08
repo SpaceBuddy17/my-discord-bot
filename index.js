@@ -5,14 +5,20 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  Events,
+  REST,
+  Routes
 } = require('discord.js');
+const Parser = require('rss-parser');
+const fs = require('fs');
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
   ]
 });
 
@@ -33,25 +39,44 @@ const ANON_CHANNELS = [
   '1469852593235824812'
 ];
 
-// Guild ID for instant command registration
-const TEST_GUILD_ID = '1135971663050199142'; // your Discord server ID
+// Guild ID for commands registration
+const GUILD_ID = '1135971663050199142';
 
-/* ========================================== */
+/* ================= YouTube / Welcome CONFIG ================= */
+
+// Welcome system
+const WELCOME_CHANNEL_ID = '1135971664132313243';
+const VERIFIED_ROLE_ID = '1137122628801405018';
+const WELCOME_BANNER_CHANNEL_ID = '1463012723226054708';
+const WELCOME_BANNER_ID = '1469863777443909783';
+
+// YouTube system
+const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
+const YOUTUBE_POST_CHANNEL_ID = '1135971664132313240';
+const MEDIA_ROLE_ID = '1467324932965929033';
+
+// Parser for YouTube RSS
+const parser = new Parser();
+const LAST_VIDEO_FILE = './lastVideoDate.json';
+let lastVideoDate = null;
+if (fs.existsSync(LAST_VIDEO_FILE)) {
+  try {
+    const data = JSON.parse(fs.readFileSync(LAST_VIDEO_FILE, 'utf8'));
+    lastVideoDate = data.lastVideoDate;
+  } catch (err) {
+    console.error('Failed to read lastVideoDate.json', err);
+  }
+}
+
+function saveLastVideoDate(date) {
+  lastVideoDate = date;
+  fs.writeFileSync(LAST_VIDEO_FILE, JSON.stringify({ lastVideoDate: date }));
+}
+
+/* ================= BOTPOST COMMAND ================= */
 
 const pendingBotposts = new Map();
 const anonMessages = new Map(); // id -> { content, userId, channel, messageId }
-
-/* =============== HELPERS ================= */
-
-function hasAdminRole(member) {
-  return member.roles.cache.some(r => ADMIN_ROLES.includes(r.id));
-}
-
-function makeId() {
-  return 'SP-' + Math.random().toString(36).slice(2, 7).toUpperCase();
-}
-
-/* =============== COMMANDS ================= */
 
 const commands = [
   new SlashCommandBuilder()
@@ -66,30 +91,35 @@ const commands = [
   new SlashCommandBuilder()
     .setName('anonlookup')
     .setDescription('Lookup the sender of an anonymous message')
-    .addStringOption(o => o.setName('message_id').setDescription('ID of the anonymous message').setRequired(true))
-];
+    .addStringOption(o => o.setName('message_id').setDescription('ID of the anonymous message').setRequired(true)),
 
-/* ============== READY ================= */
+  new SlashCommandBuilder()
+    .setName('previewwelcome')
+    .setDescription('Preview the welcome message embed'),
 
-client.once('ready', async () => {
-  const guild = client.guilds.cache.get(TEST_GUILD_ID);
-  if (!guild) {
-    console.warn('⚠️ Test guild not found, commands not registered');
-    return;
-  }
+  new SlashCommandBuilder()
+    .setName('ping')
+    .setDescription('Replies with Pong!'),
 
+  new SlashCommandBuilder()
+    .setName('testyoutube')
+    .setDescription('Send a test YouTube notification')
+].map(cmd => cmd.toJSON());
+
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+/* ================= REGISTER COMMANDS ================= */
+
+(async () => {
   try {
-    await guild.commands.set([]); // clear old commands
-    await guild.commands.set(commands); // register current commands
-    console.log('✅ Commands registered in test server');
+    await rest.put(Routes.applicationGuildCommands(client.user?.id || 'BOT_CLIENT_ID', GUILD_ID), { body: commands });
+    console.log('✅ Slash commands registered');
   } catch (err) {
     console.error('Error registering commands:', err);
   }
+})();
 
-  console.log(`Logged in as ${client.user.tag}`);
-});
-
-/* ============ INTERACTIONS ============== */
+/* ================= INTERACTIONS ================= */
 
 client.on('interactionCreate', async interaction => {
   try {
@@ -97,12 +127,13 @@ client.on('interactionCreate', async interaction => {
 
     const o = interaction.options;
 
-    // Admin check
-    if (interaction.isChatInputCommand() && !hasAdminRole(interaction.member)) {
+    // Admin check for bot commands
+    if (interaction.isChatInputCommand() && !['ping', 'testyoutube', 'previewwelcome'].includes(interaction.commandName) &&
+        !interaction.member.roles.cache.some(r => ADMIN_ROLES.includes(r.id))) {
       return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
 
-    /* ---------- BOTPOST (embed only) ---------- */
+    /* ---------- BOTPOST ---------- */
     if (interaction.isChatInputCommand() && interaction.commandName === 'botpost') {
       let description = o.getString('description');
       if (o.getString('description2')) description += `\n\n${o.getString('description2')}`;
@@ -135,7 +166,7 @@ client.on('interactionCreate', async interaction => {
       });
     }
 
-    /* ---------- CONFIRM/CANCEL BUTTONS ---------- */
+    /* ---------- CONFIRM / CANCEL ---------- */
     if (interaction.isButton()) {
       const data = pendingBotposts.get(interaction.user.id);
       if (!data) return;
@@ -146,17 +177,35 @@ client.on('interactionCreate', async interaction => {
       }
 
       if (interaction.customId === 'confirm') {
-        // Send embed first
         await data.channel.send({ embeds: [data.embed] });
-
-        // Send ping after embed
-        if (data.ping) {
-          await data.channel.send(`<@&${data.ping.id}>`);
-        }
-
+        if (data.ping) await data.channel.send(`<@&${data.ping.id}>`);
         pendingBotposts.delete(interaction.user.id);
         return await interaction.update({ content: '✅ Confirmed.', embeds: [], components: [] });
       }
+    }
+
+    /* ---------- PING ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'ping') {
+      return interaction.reply('🏓 Pong!');
+    }
+
+    /* ---------- TEST YOUTUBE ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'testyoutube') {
+      const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
+      if (!channel) return;
+
+      const embed = {
+        color: 0xFF0000,
+        title: "The Holy Who wk4 || 11.23.25 || Pastor Terry Jimmerson",
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        description: "📢 New video uploaded! Go check it out!",
+        image: { url: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg" },
+        timestamp: new Date()
+      };
+
+      await channel.send({ embeds: [embed] });
+      await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
+      return interaction.reply({ content: '✅ Test message sent', ephemeral: true });
     }
 
     /* ---------- ANONLOOKUP ---------- */
@@ -168,24 +217,47 @@ client.on('interactionCreate', async interaction => {
       return await interaction.reply({ content: `🕵️ Sender: <@${msg.userId}> • ID: ${anonId}`, ephemeral: true });
     }
 
+    /* ---------- PREVIEWWELCOME ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'previewwelcome') {
+      const welcomeEndings = [
+        "We’re thrilled to have you in our community!",
+        "Feel free to jump in and say hi to everyone!",
+        "Glad you joined us — we hope you enjoy your time here!"
+      ];
+      const randomEnding = welcomeEndings[Math.floor(Math.random() * welcomeEndings.length)];
+
+      const previewEmbed = {
+        color: 0xFFFFFF,
+        title: `Welcome to ${interaction.guild.name}, ${interaction.user.username}!`,
+        description: randomEnding,
+        thumbnail: { url: interaction.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
+        image: { url: `https://cdn.discordapp.com/attachments/${WELCOME_BANNER_CHANNEL_ID}/${WELCOME_BANNER_ID}/banner.png` },
+        footer: {
+          text: interaction.guild.name,
+          icon_url: interaction.guild.iconURL({ dynamic: true })
+        },
+        timestamp: new Date()
+      };
+
+      await interaction.reply({ embeds: [previewEmbed], ephemeral: true });
+    }
+
   } catch (err) {
     console.error('Interaction error:', err);
     if (!interaction.replied) await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true });
   }
 });
 
-/* ---------- ANONYMOUS MESSAGE HANDLER (EMBED) ---------- */
+/* ---------- ANONYMOUS MESSAGE HANDLER ---------- */
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
   if (!ANON_CHANNELS.includes(message.channel.id)) return;
 
-  const anonId = makeId();
+  const anonId = 'SP-' + Math.random().toString(36).slice(2, 7).toUpperCase();
   anonMessages.set(anonId, { content: message.content, userId: message.author.id, channel: message.channel, messageId: message.id });
 
-  // Delete the original user message
   await message.delete().catch(() => {});
 
-  // Repost anonymously as an embed
   const embed = new EmbedBuilder()
     .setColor(0x7289da)
     .setTitle('✉️ Anonymous Message')
@@ -196,6 +268,83 @@ client.on('messageCreate', async message => {
   await message.channel.send({ embeds: [embed] });
 });
 
-/* =============== LOGIN ================= */
+/* ---------- WELCOME MESSAGE WITH BANNER AND RANDOM ENDINGS ---------- */
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+  if (!oldMember.roles.cache.has(VERIFIED_ROLE_ID) &&
+      newMember.roles.cache.has(VERIFIED_ROLE_ID)) {
+
+    const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+    if (!channel) return;
+
+    const welcomeEndings = [
+      "We’re thrilled to have you in our community!",
+      "Feel free to jump in and say hi to everyone!",
+      "Glad you joined us — we hope you enjoy your time here!"
+    ];
+    const randomEnding = welcomeEndings[Math.floor(Math.random() * welcomeEndings.length)];
+
+    const welcomeEmbed = {
+      color: 0xFFFFFF,
+      title: `Welcome to ${newMember.guild.name}, ${newMember.displayName}!`,
+      description: randomEnding,
+      thumbnail: { url: newMember.user.displayAvatarURL({ dynamic: true, size: 1024 }) },
+      image: { url: `https://cdn.discordapp.com/attachments/${WELCOME_BANNER_CHANNEL_ID}/${WELCOME_BANNER_ID}/banner.png` },
+      footer: {
+        text: newMember.guild.name,
+        icon_url: newMember.guild.iconURL({ dynamic: true })
+      },
+      timestamp: new Date()
+    };
+
+    await channel.send({ embeds: [welcomeEmbed] });
+    await channel.send({ content: `<@${newMember.id}>` });
+  }
+});
+
+/* ---------- YOUTUBE CHECK (VOD SAFE) ---------- */
+async function checkYouTube() {
+  try {
+    const feed = await parser.parseURL(
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`
+    );
+
+    const latest = feed.items[0];
+    if (!latest || !latest.pubDate) return;
+
+    const published = new Date(latest.pubDate).getTime();
+
+    if (!lastVideoDate || published > lastVideoDate) {
+      saveLastVideoDate(published);
+
+      const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
+      if (!channel) return;
+
+      const embed = {
+        color: 0xFF0000,
+        title: latest.title,
+        url: latest.link,
+        description: "📢 New video uploaded! Go check it out!",
+        image: { url: latest['media:group']['media:thumbnail']['$'].url },
+        timestamp: new Date()
+      };
+
+      await channel.send({ embeds: [embed] });
+      await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
+    }
+  } catch (err) {
+    console.error('YouTube check failed:', err);
+  }
+}
+
+/* ================= READY ================= */
+client.once(Events.ClientReady, async () => {
+  console.log(`🤖 Logged in as ${client.user.tag}`);
+
+  // Immediate YouTube check
+  await checkYouTube();
+
+  // Repeat every 5 minutes
+  setInterval(checkYouTube, 5 * 60 * 1000);
+});
 
 client.login(TOKEN);
