@@ -9,7 +9,6 @@ const {
   ButtonBuilder,
   ButtonStyle
 } = require('discord.js');
-const fs = require('fs');
 
 const client = new Client({
   intents: [
@@ -37,18 +36,19 @@ const ANON_CHANNELS = [
 
 const pendingBotposts = new Map();
 const scheduledPosts = [];
+const anonMessages = new Map(); // id -> { content, userId, channel }
+
+/* =============== HELPERS ================= */
 
 function hasAdminRole(member) {
   return member.roles.cache.some(r => ADMIN_ROLES.includes(r.id));
 }
 
-/* ===== PACIFIC TIME HELPERS ===== */
-
 function pacificToUTC(mmddyyyy, time24) {
   const [m, d, y] = mmddyyyy.split('-').map(Number);
   const [hh, mm] = time24.split(':').map(Number);
-  const base = new Date(Date.UTC(y, m - 1, d, hh, mm));
-  const offset = new Date(base.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+  const pacific = new Date(Date.UTC(y, m - 1, d, hh, mm));
+  const offset = new Date(pacific.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
   return offset;
 }
 
@@ -71,19 +71,19 @@ const commands = [
     .setName('botpost')
     .setDescription('Send a bot message')
     .addStringOption(o => o.setName('title').setDescription('Title of the embed').setRequired(true))
-    .addStringOption(o => o.setName('description').setDescription('Primary description of the embed').setRequired(true))
-    .addStringOption(o => o.setName('description2').setDescription('Secondary description of the embed (optional)'))
-    .addStringOption(o => o.setName('link').setDescription('Optional website link'))
-    .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping')),
+    .addStringOption(o => o.setName('description').setDescription('Primary description (multi-line allowed)').setRequired(true))
+    .addStringOption(o => o.setName('description2').setDescription('Secondary description (optional)').setRequired(false))
+    .addStringOption(o => o.setName('link').setDescription('Optional website link').setRequired(false))
+    .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false)),
 
   new SlashCommandBuilder()
     .setName('schedulebotpost')
     .setDescription('Schedule a botpost (Pacific Time)')
     .addStringOption(o => o.setName('title').setDescription('Title of the embed').setRequired(true))
     .addStringOption(o => o.setName('description').setDescription('Primary description').setRequired(true))
-    .addStringOption(o => o.setName('description2').setDescription('Secondary description (optional)'))
-    .addStringOption(o => o.setName('link').setDescription('Optional website link'))
-    .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping'))
+    .addStringOption(o => o.setName('description2').setDescription('Secondary description (optional)').setRequired(false))
+    .addStringOption(o => o.setName('link').setDescription('Optional website link').setRequired(false))
+    .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false))
     .addStringOption(o => o.setName('date').setDescription('MM-DD-YYYY').setRequired(true))
     .addStringOption(o => o.setName('time').setDescription('HH:MM 24h').setRequired(true)),
 
@@ -100,13 +100,13 @@ const commands = [
     .setName('editscheduledpost')
     .setDescription('Edit a scheduled post')
     .addStringOption(o => o.setName('id').setDescription('Scheduled post ID').setRequired(true))
-    .addStringOption(o => o.setName('title').setDescription('New title (optional)'))
-    .addStringOption(o => o.setName('description').setDescription('New description (optional)'))
-    .addStringOption(o => o.setName('description2').setDescription('New secondary description (optional)'))
-    .addStringOption(o => o.setName('link').setDescription('New website link (optional)'))
-    .addRoleOption(o => o.setName('ping').setDescription('New role to ping (optional)'))
-    .addStringOption(o => o.setName('date').setDescription('New date MM-DD-YYYY (optional)'))
-    .addStringOption(o => o.setName('time').setDescription('New time HH:MM 24h (optional)')),
+    .addStringOption(o => o.setName('title').setDescription('New title (optional)').setRequired(false))
+    .addStringOption(o => o.setName('description').setDescription('New description (optional)').setRequired(false))
+    .addStringOption(o => o.setName('description2').setDescription('New secondary description (optional)').setRequired(false))
+    .addStringOption(o => o.setName('link').setDescription('New website link (optional)').setRequired(false))
+    .addRoleOption(o => o.setName('ping').setDescription('New role to ping (optional)').setRequired(false))
+    .addStringOption(o => o.setName('date').setDescription('New date MM-DD-YYYY (optional)').setRequired(false))
+    .addStringOption(o => o.setName('time').setDescription('New time HH:MM 24h (optional)').setRequired(false)),
 
   new ContextMenuCommandBuilder()
     .setName('Lookup Anonymous Sender')
@@ -128,11 +128,11 @@ client.on('interactionCreate', async interaction => {
     return interaction.reply({ content: '❌ No permission.', ephemeral: true });
   }
 
-  // ---------- CREATE / SCHEDULE ----------
+  const o = interaction.options;
+
+  /* ---------- BOTPOST & SCHEDULE PREVIEW ---------- */
   if (interaction.isChatInputCommand() &&
       ['botpost', 'schedulebotpost'].includes(interaction.commandName)) {
-
-    const o = interaction.options;
 
     let description = o.getString('description');
     if (o.getString('description2')) description += `\n\n${o.getString('description2')}`;
@@ -171,37 +171,23 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // ---------- EDIT SCHEDULED ----------
+  /* ---------- EDIT SCHEDULED ---------- */
   if (interaction.isChatInputCommand() &&
       interaction.commandName === 'editscheduledpost') {
 
-    const id = interaction.options.getString('id');
+    const id = o.getString('id');
     const post = scheduledPosts.find(p => p.id === id);
+    if (!post) return interaction.reply({ content: '❌ Scheduled post not found.', ephemeral: true });
 
-    if (!post) {
-      return interaction.reply({ content: '❌ Scheduled post not found.', ephemeral: true });
-    }
-
-    if (interaction.options.getString('title'))
-      post.embed.setTitle(interaction.options.getString('title'));
-
-    let desc = interaction.options.getString('description');
+    if (o.getString('title')) post.embed.setTitle(o.getString('title'));
+    let desc = o.getString('description');
     if (desc) {
-      if (interaction.options.getString('description2'))
-        desc += `\n\n${interaction.options.getString('description2')}`;
-      if (interaction.options.getString('link'))
-        desc += `\n\n[Website Link](${interaction.options.getString('link')})`;
+      if (o.getString('description2')) desc += `\n\n${o.getString('description2')}`;
+      if (o.getString('link')) desc += `\n\n[Website Link](${o.getString('link')})`;
       post.embed.setDescription(desc);
     }
-
-    if (interaction.options.getRole('ping'))
-      post.ping = interaction.options.getRole('ping');
-
-    if (interaction.options.getString('date') && interaction.options.getString('time'))
-      post.when = pacificToUTC(
-        interaction.options.getString('date'),
-        interaction.options.getString('time')
-      );
+    if (o.getRole('ping')) post.ping = o.getRole('ping');
+    if (o.getString('date') && o.getString('time')) post.when = pacificToUTC(o.getString('date'), o.getString('time'));
 
     pendingBotposts.set(interaction.user.id, post);
 
@@ -218,7 +204,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // ---------- CONFIRM ----------
+  /* ---------- CONFIRM/CANCEL BUTTONS ---------- */
   if (interaction.isButton()) {
     const data = pendingBotposts.get(interaction.user.id);
     if (!data) return;
@@ -229,13 +215,9 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.customId === 'confirm') {
-      if (data.when && !scheduledPosts.includes(data)) {
-        scheduledPosts.push(data);
-      } else if (!data.when) {
-        await data.channel.send({
-          content: data.ping ? `<@&${data.ping.id}>` : null,
-          embeds: [data.embed]
-        });
+      if (data.when && !scheduledPosts.includes(data)) scheduledPosts.push(data);
+      else if (!data.when) {
+        data.channel.send({ content: data.ping ? `<@&${data.ping.id}>` : null, embeds: [data.embed] });
       }
 
       pendingBotposts.delete(interaction.user.id);
@@ -243,13 +225,9 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // ---------- LIST ----------
-  if (interaction.isChatInputCommand() &&
-      interaction.commandName === 'listscheduledposts') {
-
-    if (!scheduledPosts.length) {
-      return interaction.reply({ content: 'No scheduled posts.', ephemeral: true });
-    }
+  /* ---------- LIST SCHEDULED ---------- */
+  if (interaction.isChatInputCommand() && interaction.commandName === 'listscheduledposts') {
+    if (!scheduledPosts.length) return interaction.reply({ content: 'No scheduled posts.', ephemeral: true });
 
     const text = scheduledPosts.map(p =>
       `🆔 **${p.id}** — ${p.embed.data.title}\n<#${p.channel.id}> • ${formatPacific(p.when)}`
@@ -258,19 +236,30 @@ client.on('interactionCreate', async interaction => {
     return interaction.reply({ content: text, ephemeral: true });
   }
 
-  // ---------- CANCEL ----------
-  if (interaction.isChatInputCommand() &&
-      interaction.commandName === 'cancelscheduledpost') {
-
-    const id = interaction.options.getString('id');
+  /* ---------- CANCEL SCHEDULED ---------- */
+  if (interaction.isChatInputCommand() && interaction.commandName === 'cancelscheduledpost') {
+    const id = o.getString('id');
     const idx = scheduledPosts.findIndex(p => p.id === id);
-
-    if (idx === -1) {
-      return interaction.reply({ content: '❌ ID not found.', ephemeral: true });
-    }
-
+    if (idx === -1) return interaction.reply({ content: '❌ ID not found.', ephemeral: true });
     scheduledPosts.splice(idx, 1);
     return interaction.reply({ content: `✅ Canceled ${id}`, ephemeral: true });
+  }
+
+  /* ---------- ANONYMOUS CHANNELS ---------- */
+  if (interaction.isChatInputCommand() && ANON_CHANNELS.includes(interaction.channelId)) {
+    const content = o.getString('message');
+    const anonId = makeId();
+    anonMessages.set(anonId, { content, userId: interaction.user.id, channel: interaction.channel });
+    await interaction.reply({ content: `✉️ Sent anonymously • ID: ${anonId}`, ephemeral: true });
+  }
+
+  /* ---------- LOOKUP ANONYMOUS ---------- */
+  if (interaction.isMessageContextMenuCommand() && interaction.commandName === 'Lookup Anonymous Sender') {
+    const messageId = interaction.targetId;
+    const record = Array.from(anonMessages.entries()).find(([id, msg]) => msg.messageId === messageId);
+    if (!record) return interaction.reply({ content: '❌ Could not find sender.', ephemeral: true });
+    const [anonId, msg] = record;
+    return interaction.reply({ content: `🕵️ Sender: <@${msg.userId}> • ID: ${anonId}`, ephemeral: true });
   }
 });
 
@@ -281,10 +270,7 @@ setInterval(async () => {
   for (let i = scheduledPosts.length - 1; i >= 0; i--) {
     if (scheduledPosts[i].when <= now) {
       const p = scheduledPosts[i];
-      await p.channel.send({
-        content: p.ping ? `<@&${p.ping.id}>` : null,
-        embeds: [p.embed]
-      });
+      await p.channel.send({ content: p.ping ? `<@&${p.ping.id}>` : null, embeds: [p.embed] });
       scheduledPosts.splice(i, 1);
     }
   }
