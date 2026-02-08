@@ -1,225 +1,154 @@
-const { 
-  Client, 
-  GatewayIntentBits, 
-  SlashCommandBuilder, 
-  ActionRowBuilder, 
-  ButtonBuilder, 
-  ButtonStyle, 
-  EmbedBuilder, 
-  Events, 
-  REST, 
+const {
+  Client,
+  GatewayIntentBits,
+  SlashCommandBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  Events,
+  REST,
   Routes
-} = require('discord.js');
-const Parser = require('rss-parser');
-const fs = require('fs');
-
-/* ====================== CONFIG ====================== */
-
-const TOKEN = process.env.BOT_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID;
-
-// Admin roles
-const ADMIN_ROLES = ['1318997119566090270','1136004041395159140'];
-
-// Anonymous channels
-const ANON_CHANNELS = ['1135983739843915846','1468476714626711643','1469852593235824812'];
-
-// Welcome
-const WELCOME_CHANNEL_ID = '1135971664132313243';
-const VERIFIED_ROLE_ID = '1137122628801405018';
-const WELCOME_IMAGE = 'https://cdn.discordapp.com/attachments/1463012723226054708/1469863777712472114/DestinyWelcomeSlideWidescreen.jpg?ex=698934d1&is=6987e351&hm=5abdc3ed25a039eb96112a6786679bf905d9524d3f3cdc0b794ae86bf01d410f&';
-
-// YouTube
-const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
-const YOUTUBE_POST_CHANNEL_ID = '1135971664132313240';
-const MEDIA_ROLE_ID = '1467324932965929033';
-
-const parser = new Parser();
-
-// YouTube last video tracking
-const LAST_VIDEO_FILE = './lastVideoDate.json';
-let lastVideoDate = null;
-if (fs.existsSync(LAST_VIDEO_FILE)) {
-  try { lastVideoDate = JSON.parse(fs.readFileSync(LAST_VIDEO_FILE,'utf8')).lastVideoDate; } catch(e){console.error(e)}
-}
-function saveLastVideoDate(date){ lastVideoDate = date; fs.writeFileSync(LAST_VIDEO_FILE, JSON.stringify({lastVideoDate: date})); }
-
-/* ====================== CLIENT ====================== */
+} = require("discord.js");
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildMessageReactions
   ]
 });
 
-/* ====================== HELPERS ====================== */
+/* -------------------- SLASH COMMANDS -------------------- */
 
-function hasAdminRole(member){ return member.roles.cache.some(r => ADMIN_ROLES.includes(r.id)); }
-function makeId(){ return 'ID-'+Math.random().toString(36).slice(2,7).toUpperCase(); }
+const pollCommand = new SlashCommandBuilder()
+  .setName("poll")
+  .setDescription("Create a poll with emojis and multiple answers")
+  .addStringOption(o =>
+    o.setName("question")
+      .setDescription("Poll question")
+      .setRequired(true)
+  )
+  .addStringOption(o =>
+    o.setName("options")
+      .setDescription("Options separated by | (max 5)")
+      .setRequired(true)
+  )
+  .addStringOption(o =>
+    o.setName("emojis")
+      .setDescription("Emojis separated by | (must match options)")
+      .setRequired(true)
+  );
 
-/* ====================== COMMANDS ====================== */
+const reregisterCommand = new SlashCommandBuilder()
+  .setName("reregister")
+  .setDescription("Re-register slash commands (admin only)");
 
 const commands = [
-  new SlashCommandBuilder().setName('botpost').setDescription('Send a bot embed message')
-    .addStringOption(o=>o.setName('title').setDescription('Embed title').setRequired(true))
-    .addStringOption(o=>o.setName('description').setDescription('Description').setRequired(true))
-    .addStringOption(o=>o.setName('description2').setDescription('Secondary description').setRequired(false))
-    .addStringOption(o=>o.setName('link').setDescription('Website link').setRequired(false))
-    .addRoleOption(o=>o.setName('ping').setDescription('Optional role to ping').setRequired(false)),
+  pollCommand.toJSON(),
+  reregisterCommand.toJSON()
+];
 
-  new SlashCommandBuilder().setName('anonlookup').setDescription('Lookup an anonymous sender').setDefaultMemberPermissions(0),
+/* -------------------- REGISTER COMMANDS -------------------- */
 
-  new SlashCommandBuilder().setName('poll').setDescription('Create a poll')
-    .addStringOption(o=>o.setName('question').setDescription('Poll question').setRequired(true))
-    .addStringOption(o=>o.setName('option1').setDescription('Option 1').setRequired(true))
-    .addStringOption(o=>o.setName('emoji1').setDescription('Emoji for Option 1').setRequired(true))
-    .addStringOption(o=>o.setName('option2').setDescription('Option 2').setRequired(true))
-    .addStringOption(o=>o.setName('emoji2').setDescription('Emoji for Option 2').setRequired(true))
-    .addStringOption(o=>o.setName('option3').setDescription('Option 3').setRequired(false))
-    .addStringOption(o=>o.setName('emoji3').setDescription('Emoji for Option 3').setRequired(false))
-    .addStringOption(o=>o.setName('option4').setDescription('Option 4').setRequired(false))
-    .addStringOption(o=>o.setName('emoji4').setDescription('Emoji for Option 4').setRequired(false))
-    .addStringOption(o=>o.setName('option5').setDescription('Option 5').setRequired(false))
-    .addStringOption(o=>o.setName('emoji5').setDescription('Emoji for Option 5').setRequired(false)),
+async function registerSlashCommands() {
+  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-  new SlashCommandBuilder().setName('ping').setDescription('Pong!'),
-  new SlashCommandBuilder().setName('testyoutube').setDescription('Send test YouTube notification')
-].map(cmd=>cmd.toJSON());
-
-const rest = new REST({ version: '10' }).setToken(TOKEN);
-(async()=>{ await rest.put(Routes.applicationGuildCommands(CLIENT_ID,GUILD_ID),{body:commands}); console.log('✅ Commands registered');})();
-
-/* ====================== INTERACTIONS ====================== */
-
-const pendingBotposts = new Map();
-const pendingPolls = new Map();
-const anonMessages = new Map();
-
-client.on(Events.InteractionCreate, async interaction=>{
-
-  // Admin check
-  if ((interaction.isChatInputCommand() || interaction.isMessageContextMenuCommand()) && !hasAdminRole(interaction.member)){
-    if(['botpost','poll'].includes(interaction.commandName)) return interaction.reply({content:'❌ No permission',ephemeral:true});
-  }
-
-  /* ----------- BOTPOST ----------- */
-  if(interaction.isChatInputCommand() && interaction.commandName==='botpost'){
-    let desc = interaction.options.getString('description');
-    if(interaction.options.getString('description2')) desc+=`\n\n${interaction.options.getString('description2')}`;
-    if(interaction.options.getString('link')) desc+=`\n\n[Link](${interaction.options.getString('link')})`;
-    const embed = new EmbedBuilder().setTitle(interaction.options.getString('title')).setDescription(desc).setColor(0xffffff).setTimestamp();
-    const data = { embed, ping: interaction.options.getRole('ping'), channel: interaction.channel };
-    pendingBotposts.set(interaction.user.id,data);
-
-    const buttons = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('botpost_confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('botpost_cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
-    );
-
-    return interaction.reply({ content:'📋 Preview', embeds:[embed], components:[buttons], ephemeral:true });
-  }
-
-  /* ----------- POLL ----------- */
-  if(interaction.isChatInputCommand() && interaction.commandName==='poll'){
-    const question = interaction.options.getString('question');
-    const options = [];
-    for(let i=1;i<=5;i++){
-      const opt = interaction.options.getString('option'+i);
-      const em = interaction.options.getString('emoji'+i);
-      if(opt && em) options.push({text:opt,emoji:em});
-    }
-    const embed = new EmbedBuilder().setTitle(`📊 ${question}`).setDescription(options.map(o=>`${o.emoji} ${o.text}`).join('\n')).setColor(0x00AAFF).setTimestamp();
-    pendingPolls.set(interaction.user.id,{embed,options,channel:interaction.channel});
-    const buttons = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('poll_confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('poll_cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
-    );
-    return interaction.reply({ content:'📋 Poll preview', embeds:[embed], components:[buttons], ephemeral:true });
-  }
-
-  /* ----------- BUTTONS ----------- */
-  if(interaction.isButton()){
-    if(interaction.customId==='botpost_cancel'){ pendingBotposts.delete(interaction.user.id); return interaction.update({content:'❌ Canceled',embeds:[],components:[]}); }
-    if(interaction.customId==='botpost_confirm'){
-      const data = pendingBotposts.get(interaction.user.id);
-      await data.channel.send({ embeds:[data.embed] });
-      if(data.ping) await data.channel.send({ content:`<@&${data.ping.id}>` });
-      pendingBotposts.delete(interaction.user.id);
-      return interaction.update({content:'✅ Confirmed',embeds:[],components:[]});
-    }
-    if(interaction.customId==='poll_cancel'){ pendingPolls.delete(interaction.user.id); return interaction.update({content:'❌ Poll canceled',embeds:[],components:[]}); }
-    if(interaction.customId==='poll_confirm'){
-      const data = pendingPolls.get(interaction.user.id);
-      const msg = await data.channel.send({ embeds:[data.embed] });
-      for(const o of data.options){ await msg.react(o.emoji); }
-      pendingPolls.delete(interaction.user.id);
-      return interaction.update({content:'✅ Poll sent',embeds:[],components:[]});
-    }
-  }
-
-});
-
-/* ----------- ANON MESSAGES ----------- */
-client.on(Events.MessageCreate, async msg=>{
-  if(ANON_CHANNELS.includes(msg.channelId) && !msg.author.bot){
-    const anonId = makeId();
-    anonMessages.set(anonId,{content:msg.content,userId:msg.author.id,channel:msg.channel});
-    await msg.delete();
-    await msg.channel.send({ content:`✉️ Sent anonymously • ID: ${anonId}` });
-  }
-});
-
-/* ----------- WELCOME ----------- */
-client.on(Events.GuildMemberUpdate, async(oldMember,newMember)=>{
-  if(!oldMember.roles.cache.has(VERIFIED_ROLE_ID) && newMember.roles.cache.has(VERIFIED_ROLE_ID)){
-    const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
-    if(!channel) return;
-    const endings = ["We’re thrilled to have you in our community!","Feel free to jump in and say hi to everyone!","Glad you joined us — we hope you enjoy your time here!"];
-    const randomEnding = endings[Math.floor(Math.random()*endings.length)];
-    const embed = new EmbedBuilder()
-      .setTitle(`Welcome to ${newMember.guild.name}, ${newMember.displayName}!`)
-      .setDescription(randomEnding)
-      .setThumbnail(WELCOME_IMAGE)
-      .setColor(0xFFFFFF)
-      .setTimestamp();
-    await channel.send({ embeds:[embed] });
-    await channel.send({ content:`<@${newMember.id}>` });
-  }
-});
-
-/* ----------- YOUTUBE CHECK ----------- */
-async function checkYouTube(){
-  try{
-    const feed = await parser.parseURL(`https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`);
-    const latest = feed.items[0];
-    if(!latest || !latest.pubDate) return;
-    const published = new Date(latest.pubDate).getTime();
-    if(!lastVideoDate || published>lastVideoDate){
-      saveLastVideoDate(published);
-      const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
-      if(!channel) return;
-      const embed = new EmbedBuilder()
-        .setTitle(latest.title)
-        .setURL(latest.link)
-        .setDescription('📢 New video uploaded!')
-        .setImage(latest['media:group']['media:thumbnail']['$'].url)
-        .setColor(0xFF0000)
-        .setTimestamp();
-      await channel.send({ embeds:[embed] });
-      await channel.send({ content:`<@&${MEDIA_ROLE_ID}>` });
-    }
-  }catch(e){console.error('YouTube check failed',e);}
+  await rest.put(
+    Routes.applicationGuildCommands(
+      process.env.CLIENT_ID,
+      process.env.GUILD_ID
+    ),
+    { body: commands }
+  );
 }
 
-/* ----------- READY ----------- */
-client.once(Events.ClientReady, async()=>{
+/* -------------------- BOT READY -------------------- */
+
+client.once(Events.ClientReady, async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
-  await checkYouTube();
-  setInterval(checkYouTube,5*60*1000);
+  await registerSlashCommands();
+  console.log("✅ Slash commands registered");
 });
 
-client.login(TOKEN);
+/* -------------------- INTERACTIONS -------------------- */
+
+client.on(Events.InteractionCreate, async interaction => {
+  /* ---------- /poll ---------- */
+  if (interaction.isChatInputCommand() && interaction.commandName === "poll") {
+    const question = interaction.options.getString("question");
+    const options = interaction.options.getString("options").split("|").map(o => o.trim());
+    const emojis = interaction.options.getString("emojis").split("|").map(e => e.trim());
+
+    if (options.length > 5)
+      return interaction.reply({ content: "❌ Max 5 options.", ephemeral: true });
+
+    if (options.length !== emojis.length)
+      return interaction.reply({ content: "❌ Options and emojis must match.", ephemeral: true });
+
+    const description = options
+      .map((opt, i) => `## ${emojis[i]} ${opt}`)
+      .join("\n");
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle(question)
+      .setDescription(description)
+      .setFooter({ text: "You may vote for multiple options" });
+
+    const buttons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("poll_confirm")
+        .setLabel("Confirm")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId("poll_cancel")
+        .setLabel("Cancel")
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    await interaction.reply({
+      embeds: [embed],
+      components: [buttons],
+      ephemeral: true
+    });
+
+    interaction.client.pollCache ??= new Map();
+    interaction.client.pollCache.set(interaction.user.id, {
+      embed,
+      emojis
+    });
+  }
+
+  /* ---------- BUTTONS ---------- */
+  if (interaction.isButton()) {
+    const data = interaction.client.pollCache?.get(interaction.user.id);
+    if (!data) return interaction.reply({ content: "❌ Poll data expired.", ephemeral: true });
+
+    if (interaction.customId === "poll_cancel") {
+      interaction.client.pollCache.delete(interaction.user.id);
+      return interaction.update({ content: "❌ Poll cancelled.", embeds: [], components: [] });
+    }
+
+    if (interaction.customId === "poll_confirm") {
+      const msg = await interaction.channel.send({ embeds: [data.embed] });
+
+      for (const emoji of data.emojis) {
+        await msg.react(emoji);
+      }
+
+      interaction.client.pollCache.delete(interaction.user.id);
+      await interaction.update({ content: "✅ Poll posted!", embeds: [], components: [] });
+    }
+  }
+
+  /* ---------- /reregister ---------- */
+  if (interaction.isChatInputCommand() && interaction.commandName === "reregister") {
+    await registerSlashCommands();
+    await interaction.reply({ content: "✅ Commands re-registered.", ephemeral: true });
+  }
+});
+
+/* -------------------- LOGIN -------------------- */
+
+client.login(process.env.TOKEN);
