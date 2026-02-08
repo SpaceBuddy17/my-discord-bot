@@ -115,7 +115,7 @@ const commands = [
 
 /* ============== READY ================= */
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
   await client.application.commands.set(commands);
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
@@ -123,143 +123,155 @@ client.once('clientReady', async () => {
 /* ============ INTERACTIONS ============== */
 
 client.on('interactionCreate', async interaction => {
-  if ((interaction.isChatInputCommand() || interaction.isMessageContextMenuCommand()) &&
-      !hasAdminRole(interaction.member)) {
-    return interaction.reply({ content: '❌ No permission.', ephemeral: true });
-  }
+  try {
+    if (!interaction.member) return;
 
-  const o = interaction.options;
-
-  /* ---------- BOTPOST & SCHEDULE PREVIEW ---------- */
-  if (interaction.isChatInputCommand() &&
-      ['botpost', 'schedulebotpost'].includes(interaction.commandName)) {
-
-    let description = o.getString('description');
-    if (o.getString('description2')) description += `\n\n${o.getString('description2')}`;
-    if (o.getString('link')) description += `\n\n[Website Link](${o.getString('link')})`;
-
-    const embed = new EmbedBuilder()
-      .setColor(0xffffff)
-      .setTitle(o.getString('title'))
-      .setDescription(description)
-      .setTimestamp();
-
-    const when = interaction.commandName === 'schedulebotpost'
-      ? pacificToUTC(o.getString('date'), o.getString('time'))
-      : null;
-
-    const data = {
-      id: when ? makeId() : null,
-      embed,
-      channel: interaction.channel,
-      ping: o.getRole('ping'),
-      when
-    };
-
-    pendingBotposts.set(interaction.user.id, data);
-
-    const buttons = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
-    );
-
-    return interaction.reply({
-      content: when ? `⏰ ${formatPacific(when)} • ID: ${data.id}` : '📋 Preview',
-      embeds: [embed],
-      components: [buttons],
-      ephemeral: true
-    });
-  }
-
-  /* ---------- EDIT SCHEDULED ---------- */
-  if (interaction.isChatInputCommand() &&
-      interaction.commandName === 'editscheduledpost') {
-
-    const id = o.getString('id');
-    const post = scheduledPosts.find(p => p.id === id);
-    if (!post) return interaction.reply({ content: '❌ Scheduled post not found.', ephemeral: true });
-
-    if (o.getString('title')) post.embed.setTitle(o.getString('title'));
-    let desc = o.getString('description');
-    if (desc) {
-      if (o.getString('description2')) desc += `\n\n${o.getString('description2')}`;
-      if (o.getString('link')) desc += `\n\n[Website Link](${o.getString('link')})`;
-      post.embed.setDescription(desc);
-    }
-    if (o.getRole('ping')) post.ping = o.getRole('ping');
-    if (o.getString('date') && o.getString('time')) post.when = pacificToUTC(o.getString('date'), o.getString('time'));
-
-    pendingBotposts.set(interaction.user.id, post);
-
-    return interaction.reply({
-      content: `✏️ **Editing ${id}** — confirm changes`,
-      embeds: [post.embed],
-      components: [
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
-        )
-      ],
-      ephemeral: true
-    });
-  }
-
-  /* ---------- CONFIRM/CANCEL BUTTONS ---------- */
-  if (interaction.isButton()) {
-    const data = pendingBotposts.get(interaction.user.id);
-    if (!data) return;
-
-    if (interaction.customId === 'cancel') {
-      pendingBotposts.delete(interaction.user.id);
-      return interaction.update({ content: '❌ Canceled.', embeds: [], components: [] });
+    // Admin check for relevant commands
+    if ((interaction.isChatInputCommand() || interaction.isMessageContextMenuCommand()) &&
+        !hasAdminRole(interaction.member)) {
+      return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
 
-    if (interaction.customId === 'confirm') {
-      if (data.when && !scheduledPosts.includes(data)) scheduledPosts.push(data);
-      else if (!data.when) {
-        data.channel.send({ content: data.ping ? `<@&${data.ping.id}>` : null, embeds: [data.embed] });
+    const o = interaction.options;
+
+    /* ---------- BOTPOST & SCHEDULE PREVIEW ---------- */
+    if (interaction.isChatInputCommand() &&
+        ['botpost', 'schedulebotpost'].includes(interaction.commandName)) {
+
+      let description = o.getString('description');
+      if (o.getString('description2')) description += `\n\n${o.getString('description2')}`;
+      if (o.getString('link')) description += `\n\n[Website Link](${o.getString('link')})`;
+
+      const embed = new EmbedBuilder()
+        .setColor(0xffffff)
+        .setTitle(o.getString('title'))
+        .setDescription(description)
+        .setTimestamp();
+
+      const when = interaction.commandName === 'schedulebotpost'
+        ? pacificToUTC(o.getString('date'), o.getString('time'))
+        : null;
+
+      const data = {
+        id: when ? makeId() : null,
+        embed,
+        channel: interaction.channel,
+        ping: o.getRole('ping'),
+        when
+      };
+
+      pendingBotposts.set(interaction.user.id, data);
+
+      const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
+      );
+
+      return await interaction.reply({
+        content: when ? `⏰ ${formatPacific(when)} • ID: ${data.id}` : '📋 Preview',
+        embeds: [embed],
+        components: [buttons],
+        ephemeral: true
+      });
+    }
+
+    /* ---------- EDIT SCHEDULED ---------- */
+    if (interaction.isChatInputCommand() &&
+        interaction.commandName === 'editscheduledpost') {
+
+      const id = o.getString('id');
+      const post = scheduledPosts.find(p => p.id === id);
+      if (!post) return await interaction.reply({ content: '❌ Scheduled post not found.', ephemeral: true });
+
+      if (o.getString('title')) post.embed.setTitle(o.getString('title'));
+      let desc = o.getString('description');
+      if (desc) {
+        if (o.getString('description2')) desc += `\n\n${o.getString('description2')}`;
+        if (o.getString('link')) desc += `\n\n[Website Link](${o.getString('link')})`;
+        post.embed.setDescription(desc);
+      }
+      if (o.getRole('ping')) post.ping = o.getRole('ping');
+      if (o.getString('date') && o.getString('time')) post.when = pacificToUTC(o.getString('date'), o.getString('time'));
+
+      pendingBotposts.set(interaction.user.id, post);
+
+      const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
+      );
+
+      return await interaction.reply({
+        content: `✏️ **Editing ${id}** — confirm changes`,
+        embeds: [post.embed],
+        components: [buttons],
+        ephemeral: true
+      });
+    }
+
+    /* ---------- CONFIRM/CANCEL BUTTONS ---------- */
+    if (interaction.isButton()) {
+      const data = pendingBotposts.get(interaction.user.id);
+      if (!data) return;
+
+      if (interaction.customId === 'cancel') {
+        pendingBotposts.delete(interaction.user.id);
+        return await interaction.update({ content: '❌ Canceled.', embeds: [], components: [] });
       }
 
-      pendingBotposts.delete(interaction.user.id);
-      return interaction.update({ content: '✅ Confirmed.', embeds: [], components: [] });
+      if (interaction.customId === 'confirm') {
+        if (data.when && !scheduledPosts.includes(data)) scheduledPosts.push(data);
+        else if (!data.when) {
+          await data.channel.send({
+            content: data.ping ? `<@&${data.ping.id}>` : undefined,
+            embeds: [data.embed]
+          });
+        }
+
+        pendingBotposts.delete(interaction.user.id);
+        return await interaction.update({ content: '✅ Confirmed.', embeds: [], components: [] });
+      }
     }
-  }
 
-  /* ---------- LIST SCHEDULED ---------- */
-  if (interaction.isChatInputCommand() && interaction.commandName === 'listscheduledposts') {
-    if (!scheduledPosts.length) return interaction.reply({ content: 'No scheduled posts.', ephemeral: true });
+    /* ---------- LIST SCHEDULED ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'listscheduledposts') {
+      if (!scheduledPosts.length) return await interaction.reply({ content: 'No scheduled posts.', ephemeral: true });
 
-    const text = scheduledPosts.map(p =>
-      `🆔 **${p.id}** — ${p.embed.data.title}\n<#${p.channel.id}> • ${formatPacific(p.when)}`
-    ).join('\n\n');
+      const text = scheduledPosts.map(p =>
+        `🆔 **${p.id}** — ${p.embed.data.title}\n<#${p.channel.id}> • ${formatPacific(p.when)}`
+      ).join('\n\n');
 
-    return interaction.reply({ content: text, ephemeral: true });
-  }
+      return await interaction.reply({ content: text, ephemeral: true });
+    }
 
-  /* ---------- CANCEL SCHEDULED ---------- */
-  if (interaction.isChatInputCommand() && interaction.commandName === 'cancelscheduledpost') {
-    const id = o.getString('id');
-    const idx = scheduledPosts.findIndex(p => p.id === id);
-    if (idx === -1) return interaction.reply({ content: '❌ ID not found.', ephemeral: true });
-    scheduledPosts.splice(idx, 1);
-    return interaction.reply({ content: `✅ Canceled ${id}`, ephemeral: true });
-  }
+    /* ---------- CANCEL SCHEDULED ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'cancelscheduledpost') {
+      const id = o.getString('id');
+      const idx = scheduledPosts.findIndex(p => p.id === id);
+      if (idx === -1) return await interaction.reply({ content: '❌ ID not found.', ephemeral: true });
+      scheduledPosts.splice(idx, 1);
+      return await interaction.reply({ content: `✅ Canceled ${id}`, ephemeral: true });
+    }
 
-  /* ---------- ANONYMOUS CHANNELS ---------- */
-  if (interaction.isChatInputCommand() && ANON_CHANNELS.includes(interaction.channelId)) {
-    const content = o.getString('message');
-    const anonId = makeId();
-    anonMessages.set(anonId, { content, userId: interaction.user.id, channel: interaction.channel });
-    await interaction.reply({ content: `✉️ Sent anonymously • ID: ${anonId}`, ephemeral: true });
-  }
+    /* ---------- ANONYMOUS CHANNELS ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'anonmessage' && ANON_CHANNELS.includes(interaction.channelId)) {
+      const content = o.getString('message');
+      const anonId = makeId();
+      anonMessages.set(anonId, { content, userId: interaction.user.id, channel: interaction.channel });
+      return await interaction.reply({ content: `✉️ Sent anonymously • ID: ${anonId}`, ephemeral: true });
+    }
 
-  /* ---------- LOOKUP ANONYMOUS ---------- */
-  if (interaction.isMessageContextMenuCommand() && interaction.commandName === 'Lookup Anonymous Sender') {
-    const messageId = interaction.targetId;
-    const record = Array.from(anonMessages.entries()).find(([id, msg]) => msg.messageId === messageId);
-    if (!record) return interaction.reply({ content: '❌ Could not find sender.', ephemeral: true });
-    const [anonId, msg] = record;
-    return interaction.reply({ content: `🕵️ Sender: <@${msg.userId}> • ID: ${anonId}`, ephemeral: true });
+    /* ---------- LOOKUP ANONYMOUS ---------- */
+    if (interaction.isMessageContextMenuCommand() && interaction.commandName === 'Lookup Anonymous Sender') {
+      const messageId = interaction.targetId;
+      const record = Array.from(anonMessages.entries()).find(([id, msg]) => msg.messageId === messageId);
+      if (!record) return await interaction.reply({ content: '❌ Could not find sender.', ephemeral: true });
+      const [anonId, msg] = record;
+      return await interaction.reply({ content: `🕵️ Sender: <@${msg.userId}> • ID: ${anonId}`, ephemeral: true });
+    }
+
+  } catch (err) {
+    console.error('Interaction error:', err);
+    if (!interaction.replied) await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true });
   }
 });
 
@@ -270,7 +282,10 @@ setInterval(async () => {
   for (let i = scheduledPosts.length - 1; i >= 0; i--) {
     if (scheduledPosts[i].when <= now) {
       const p = scheduledPosts[i];
-      await p.channel.send({ content: p.ping ? `<@&${p.ping.id}>` : null, embeds: [p.embed] });
+      await p.channel.send({
+        content: p.ping ? `<@&${p.ping.id}>` : undefined,
+        embeds: [p.embed]
+      });
       scheduledPosts.splice(i, 1);
     }
   }
