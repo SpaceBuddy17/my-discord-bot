@@ -2,8 +2,6 @@ const {
   Client,
   GatewayIntentBits,
   SlashCommandBuilder,
-  ContextMenuCommandBuilder,
-  ApplicationCommandType,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
@@ -15,8 +13,6 @@ const {
 const Parser = require('rss-parser');
 const fs = require('fs');
 
-/* ================= CONFIG ================= */
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -26,9 +22,10 @@ const client = new Client({
   ]
 });
 
+/* ================= CONFIG ================= */
+
 const TOKEN = process.env.BOT_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID;
+const CLIENT_ID = process.env.CLIENT_ID; // ADD THIS IN RAILWAY
 
 const ADMIN_ROLES = [
   '1318997119566090270',
@@ -41,20 +38,20 @@ const ANON_CHANNELS = [
   '1469852593235824812'
 ];
 
+const GUILD_ID = '1135971663050199142';
+
+/* ================= WELCOME ================= */
+
 const WELCOME_CHANNEL_ID = '1135971664132313243';
 const VERIFIED_ROLE_ID = '1137122628801405018';
+
+/* ================= YOUTUBE ================= */
 
 const YOUTUBE_CHANNEL_ID = 'UC4qOOlisAkrU5T1aJmwqDbA';
 const YOUTUBE_POST_CHANNEL_ID = '1135971664132313240';
 const MEDIA_ROLE_ID = '1467324932965929033';
 
-/* ================= HELPERS ================= */
-
 const parser = new Parser();
-const pendingBotposts = new Map();
-const scheduledPosts = [];
-const anonMessages = new Map();
-const pollPreviews = new Map();
 const LAST_VIDEO_FILE = './lastVideoDate.json';
 let lastVideoDate = null;
 
@@ -63,7 +60,7 @@ if (fs.existsSync(LAST_VIDEO_FILE)) {
     const data = JSON.parse(fs.readFileSync(LAST_VIDEO_FILE, 'utf8'));
     lastVideoDate = data.lastVideoDate;
   } catch (err) {
-    console.error('Failed to read lastVideoDate.json', err);
+    console.error('Failed reading lastVideoDate.json', err);
   }
 }
 
@@ -72,170 +69,183 @@ function saveLastVideoDate(date) {
   fs.writeFileSync(LAST_VIDEO_FILE, JSON.stringify({ lastVideoDate: date }));
 }
 
-function hasAdminRole(member) {
-  return member.roles.cache.some(r => ADMIN_ROLES.includes(r.id));
-}
+/* ================= BOTPOST / ANON ================= */
 
-function pacificToUTC(mmddyyyy, time24) {
-  const [m, d, y] = mmddyyyy.split('-').map(Number);
-  const [hh, mm] = time24.split(':').map(Number);
-  const pacific = new Date(Date.UTC(y, m - 1, d, hh, mm));
-  const offset = new Date(pacific.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-  return offset;
-}
-
-function formatPacific(date) {
-  return date.toLocaleString('en-US', {
-    timeZone: 'America/Los_Angeles',
-    dateStyle: 'short',
-    timeStyle: 'short'
-  });
-}
-
-function makeId() {
-  return 'SP-' + Math.random().toString(36).slice(2, 7).toUpperCase();
-}
+const pendingBotposts = new Map();
+const anonMessages = new Map();
 
 /* ================= SLASH COMMANDS ================= */
 
 const commands = [
   new SlashCommandBuilder()
     .setName('botpost')
-    .setDescription('Send a bot message with embed')
-    .addStringOption(o => o.setName('title').setDescription('Title of the embed').setRequired(true))
-    .addStringOption(o => o.setName('description').setDescription('Primary description').setRequired(true))
-    .addStringOption(o => o.setName('description2').setDescription('Secondary description (optional)').setRequired(false))
-    .addStringOption(o => o.setName('link').setDescription('Optional website link').setRequired(false))
-    .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false)),
+    .setDescription('Send a bot message as an embed')
+    .addStringOption(o => o.setName('title').setDescription('Title').setRequired(true))
+    .addStringOption(o => o.setName('description').setDescription('Description').setRequired(true))
+    .addStringOption(o => o.setName('description2').setDescription('Secondary description'))
+    .addStringOption(o => o.setName('link').setDescription('Optional link'))
+    .addRoleOption(o => o.setName('ping').setDescription('Optional role ping')),
 
   new SlashCommandBuilder()
     .setName('anonlookup')
-    .setDescription('Lookup anonymous sender'),
+    .setDescription('Lookup anonymous sender')
+    .addStringOption(o => o.setName('message_id').setDescription('Message ID').setRequired(true)),
 
   new SlashCommandBuilder()
-    .setName('poll')
-    .setDescription('Create a poll')
-    .addStringOption(o => o.setName('question').setDescription('Poll question').setRequired(true))
-    .addStringOption(o => o.setName('option1').setDescription('Option 1').setRequired(true))
-    .addStringOption(o => o.setName('option2').setDescription('Option 2').setRequired(true))
-    .addStringOption(o => o.setName('option3').setDescription('Option 3').setRequired(false))
-    .addStringOption(o => o.setName('option4').setDescription('Option 4').setRequired(false))
-    .addStringOption(o => o.setName('option5').setDescription('Option 5').setRequired(false))
-].map(cmd => cmd.toJSON());
+    .setName('ping')
+    .setDescription('Replies with Pong!'),
 
-const rest = new REST({ version: '10' }).setToken(TOKEN);
-(async () => {
-  await rest.put(
-    Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-    { body: commands }
-  );
-  console.log('✅ Slash commands registered');
-})();
+  new SlashCommandBuilder()
+    .setName('testyoutube')
+    .setDescription('Send a test YouTube notification')
+].map(cmd => cmd.toJSON());
 
 /* ================= READY ================= */
 
-client.once('clientReady', () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
+client.once(Events.ClientReady, async () => {
+  console.log(`🤖 Logged in as ${client.user.tag}`);
+
+  /* REGISTER COMMANDS SAFELY */
+  try {
+    const rest = new REST({ version: '10' }).setToken(TOKEN);
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: commands }
+    );
+    console.log('✅ Slash commands registered');
+  } catch (err) {
+    console.error('Command registration failed:', err);
+  }
+
+  /* Initial YouTube Check */
+  await checkYouTube();
+  setInterval(checkYouTube, 5 * 60 * 1000);
 });
 
 /* ================= INTERACTIONS ================= */
 
 client.on('interactionCreate', async interaction => {
-  if ((interaction.isChatInputCommand() || interaction.isMessageContextMenuCommand()) &&
-      !hasAdminRole(interaction.member)) {
-    return interaction.reply({ content: '❌ No permission.', ephemeral: true });
-  }
+  try {
+    if (!interaction.member) return;
+    const o = interaction.options;
 
-  const o = interaction.options;
-
-  /* ---------- BOTPOST ---------- */
-  if (interaction.isChatInputCommand() && interaction.commandName === 'botpost') {
-    let description = o.getString('description');
-    if (o.getString('description2')) description += `\n\n${o.getString('description2')}`;
-    if (o.getString('link')) description += `\n\n[Website Link](${o.getString('link')})`;
-
-    const embed = new EmbedBuilder()
-      .setColor(0xffffff)
-      .setTitle(o.getString('title'))
-      .setDescription(description)
-      .setTimestamp();
-
-    await interaction.channel.send({
-      embeds: [embed]
-    });
-
-    const ping = o.getRole('ping');
-    if (ping) await interaction.channel.send({ content: `<@&${ping.id}>` });
-
-    return interaction.reply({ content: '✅ Botpost sent.', ephemeral: true });
-  }
-
-  /* ---------- ANONYMOUS LOOKUP ---------- */
-  if (interaction.isChatInputCommand() && interaction.commandName === 'anonlookup') {
-    return interaction.reply({ content: 'Use the anonMessages Map to lookup users by ID.', ephemeral: true });
-  }
-
-  /* ---------- POLL ---------- */
-  if (interaction.isChatInputCommand() && interaction.commandName === 'poll') {
-    const question = o.getString('question');
-    const options = [
-      o.getString('option1'),
-      o.getString('option2'),
-      o.getString('option3'),
-      o.getString('option4'),
-      o.getString('option5')
-    ].filter(Boolean);
-
-    const embed = new EmbedBuilder()
-      .setColor(0x00FF00)
-      .setTitle(question)
-      .setDescription(options.map((opt, i) => `**${i + 1}.** ${opt}`).join('\n'))
-      .setTimestamp();
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('poll_confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('poll_cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
-    );
-
-    pollPreviews.set(interaction.user.id, { embed, options, channel: interaction.channel });
-    return interaction.reply({ content: 'Preview poll:', embeds: [embed], components: [row], ephemeral: true });
-  }
-
-  /* ---------- POLL BUTTONS ---------- */
-  if (interaction.isButton()) {
-    const data = pollPreviews.get(interaction.user.id);
-    if (!data) return;
-
-    if (interaction.customId === 'poll_cancel') {
-      pollPreviews.delete(interaction.user.id);
-      return interaction.update({ content: '❌ Poll canceled.', embeds: [], components: [] });
+    if (
+      interaction.isChatInputCommand() &&
+      !['ping', 'testyoutube'].includes(interaction.commandName) &&
+      !interaction.member.roles.cache.some(r => ADMIN_ROLES.includes(r.id))
+    ) {
+      return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
 
-    if (interaction.customId === 'poll_confirm') {
-      const pollMessage = await data.channel.send({ embeds: [data.embed] });
-      for (let i = 0; i < data.options.length; i++) {
-        await pollMessage.react(`${i+1}\u20E3`); // 1️⃣, 2️⃣, etc.
+    /* BOTPOST */
+    if (interaction.commandName === 'botpost') {
+      let description = o.getString('description');
+      if (o.getString('description2')) description += `\n\n${o.getString('description2')}`;
+      if (o.getString('link')) description += `\n\n[Website Link](${o.getString('link')})`;
+
+      const embed = new EmbedBuilder()
+        .setColor(0xffffff)
+        .setTitle(o.getString('title'))
+        .setDescription(description)
+        .setTimestamp();
+
+      pendingBotposts.set(interaction.user.id, {
+        embed,
+        channel: interaction.channel,
+        ping: o.getRole('ping')
+      });
+
+      const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
+      );
+
+      return interaction.reply({
+        content: '📋 Preview',
+        embeds: [embed],
+        components: [buttons],
+        ephemeral: true
+      });
+    }
+
+    /* BUTTON HANDLER */
+    if (interaction.isButton()) {
+      const data = pendingBotposts.get(interaction.user.id);
+      if (!data) return;
+
+      if (interaction.customId === 'cancel') {
+        pendingBotposts.delete(interaction.user.id);
+        return interaction.update({ content: '❌ Canceled.', embeds: [], components: [] });
       }
-      pollPreviews.delete(interaction.user.id);
-      return interaction.update({ content: '✅ Poll posted.', embeds: [], components: [] });
+
+      if (interaction.customId === 'confirm') {
+        await data.channel.send({ embeds: [data.embed] });
+        if (data.ping) await data.channel.send(`<@&${data.ping.id}>`);
+        pendingBotposts.delete(interaction.user.id);
+        return interaction.update({ content: '✅ Confirmed.', embeds: [], components: [] });
+      }
     }
+
+    /* PING */
+    if (interaction.commandName === 'ping')
+      return interaction.reply('🏓 Pong!');
+
+    /* TEST YOUTUBE */
+    if (interaction.commandName === 'testyoutube') {
+      const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
+      if (!channel) return;
+
+      const embed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle("Test Upload")
+        .setURL("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        .setDescription("📢 New video uploaded! Go check it out!")
+        .setImage("https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg")
+        .setTimestamp();
+
+      await channel.send({ embeds: [embed] });
+      await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
+
+      return interaction.reply({ content: '✅ Test sent', ephemeral: true });
+    }
+
+    /* ANON LOOKUP */
+    if (interaction.commandName === 'anonlookup') {
+      const msgId = o.getString('message_id');
+      const record = Array.from(anonMessages.entries())
+        .find(([id, msg]) => msg.messageId === msgId);
+
+      if (!record)
+        return interaction.reply({ content: '❌ Could not find sender.', ephemeral: true });
+
+      return interaction.reply({
+        content: `🕵️ Sender: <@${record[1].userId}> • ID: ${record[0]}`,
+        ephemeral: true
+      });
+    }
+
+  } catch (err) {
+    console.error('Interaction error:', err);
   }
 });
 
-/* ====================== ANONYMOUS MESSAGING (EMBED) ====================== */
+/* ================= ANON SYSTEM ================= */
 
-client.on(Events.MessageCreate, async message => {
+client.on('messageCreate', async message => {
   if (message.author.bot) return;
-  if (!ANON_CHANNELS.includes(message.channelId)) return;
+  if (!ANON_CHANNELS.includes(message.channel.id)) return;
 
-  const anonId = makeId();
-  anonMessages.set(anonId, { content: message.content, userId: message.author.id, channel: message.channel });
+  const anonId = 'SP-' + Math.random().toString(36).slice(2, 7).toUpperCase();
+  anonMessages.set(anonId, {
+    userId: message.author.id,
+    messageId: message.id
+  });
 
-  await message.delete();
+  await message.delete().catch(() => {});
 
   const embed = new EmbedBuilder()
-    .setColor(0xAAAAAA)
-    .setTitle('Anonymous Message')
+    .setColor(0x7289da)
+    .setTitle('✉️ Anonymous Message')
     .setDescription(message.content)
     .setFooter({ text: `ID: ${anonId}` })
     .setTimestamp();
@@ -243,42 +253,50 @@ client.on(Events.MessageCreate, async message => {
   await message.channel.send({ embeds: [embed] });
 });
 
-/* ====================== WELCOME MESSAGE ====================== */
+/* ================= WELCOME FIXED ================= */
 
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-  if (!oldMember.roles.cache.has(VERIFIED_ROLE_ID) &&
-      newMember.roles.cache.has(VERIFIED_ROLE_ID)) {
+  try {
+    const hadRole = oldMember.roles.cache.has(VERIFIED_ROLE_ID);
+    const hasRole = newMember.roles.cache.has(VERIFIED_ROLE_ID);
 
-    const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
-    if (!channel) return;
+    if (!hadRole && hasRole) {
+      const channel = newMember.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+      if (!channel) return;
 
-    const endings = [
-      "We’re thrilled to have you in our community!",
-      "Feel free to jump in and say hi to everyone!",
-      "Glad you joined us — we hope you enjoy your time here!"
-    ];
-    const randomEnding = endings[Math.floor(Math.random() * endings.length)];
+      const endings = [
+        "We’re glad you’re here!",
+        "Feel free to jump in and say hello!",
+        "Welcome — we’re happy you joined us!"
+      ];
 
-    const embed = new EmbedBuilder()
-      .setColor(0xFFFFFF)
-      .setTitle(`Welcome to ${newMember.guild.name}, ${newMember.displayName}!`)
-      .setDescription(randomEnding)
-      .setImage('https://cdn.discordapp.com/attachments/1463012723226054708/1469863777712472114/DestinyWelcomeSlideWidescreen.jpg?ex=698934d1&is=6987e351&hm=5abdc3ed25a039eb96112a6786679bf905d9524d3f3cdc0b794ae86bf01d410f&')
-      .setThumbnail({ url: newMember.user.displayAvatarURL({ dynamic: true, size: 1024 }) })
-      .setTimestamp();
+      const embed = new EmbedBuilder()
+        .setColor(0xffffff)
+        .setTitle(`Welcome to ${newMember.guild.name}!`)
+        .setDescription(endings[Math.floor(Math.random() * endings.length)])
+        .setThumbnail(newMember.user.displayAvatarURL({ size: 1024 }))
+        .setTimestamp();
 
-    await channel.send({ embeds: [embed] });
-    await channel.send({ content: `<@${newMember.id}>` });
+      await channel.send({ embeds: [embed] });
+      await channel.send(`<@${newMember.id}>`);
+
+      console.log(`✅ Welcome sent for ${newMember.user.tag}`);
+    }
+  } catch (err) {
+    console.error("Welcome error:", err);
   }
 });
 
-/* ====================== YOUTUBE CHECK ====================== */
+/* ================= YOUTUBE FIXED ================= */
 
 async function checkYouTube() {
   try {
-    const feed = await parser.parseURL(`https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`);
+    const feed = await parser.parseURL(
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`
+    );
+
     const latest = feed.items[0];
-    if (!latest || !latest.pubDate) return;
+    if (!latest) return;
 
     const published = new Date(latest.pubDate).getTime();
     if (!lastVideoDate || published > lastVideoDate) {
@@ -287,29 +305,25 @@ async function checkYouTube() {
       const channel = client.channels.cache.get(YOUTUBE_POST_CHANNEL_ID);
       if (!channel) return;
 
-      const embed = {
-        color: 0xFF0000,
-        title: latest.title,
-        url: latest.link,
-        description: "📢 New video uploaded! Go check it out!",
-        image: { url: latest['media:group']['media:thumbnail']['$'].url },
-        timestamp: new Date()
-      };
+      const videoId = latest.id.split(':').pop();
+      const thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+      const embed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle(latest.title)
+        .setURL(latest.link)
+        .setDescription("📢 New video uploaded! Go check it out!")
+        .setImage(thumbnail)
+        .setTimestamp();
 
       await channel.send({ embeds: [embed] });
-      await channel.send({ content: `<@&${MEDIA_ROLE_ID}>` });
+      await channel.send(`<@&${MEDIA_ROLE_ID}>`);
+
+      console.log("📺 New YouTube video posted");
     }
   } catch (err) {
     console.error('YouTube check failed:', err);
   }
 }
-
-client.once(Events.ClientReady, async () => {
-  console.log(`🤖 Logged in as ${client.user.tag}`);
-  await checkYouTube();
-  setInterval(checkYouTube, 5 * 60 * 1000);
-});
-
-/* ====================== LOGIN ====================== */
 
 client.login(TOKEN);
