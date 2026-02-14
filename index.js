@@ -137,6 +137,128 @@ client.on('interactionCreate', async interaction => {
       return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
 
+/* -------------------- SLASH COMMANDS -------------------- */
+
+const pollCommand = new SlashCommandBuilder()
+  .setName("poll")
+  .setDescription("Create a poll with emojis and multiple answers")
+  .addStringOption(o =>
+    o.setName("question")
+      .setDescription("Poll question")
+      .setRequired(true)
+  )
+  .addStringOption(o =>
+    o.setName("options")
+      .setDescription("Options separated by | (max 5)")
+      .setRequired(true)
+  )
+  .addStringOption(o =>
+    o.setName("emojis")
+      .setDescription("Emojis separated by | (must match options)")
+      .setRequired(true)
+  );
+
+// options + emojis (1–5)
+for (let i = 1; i <= 5; i++) {
+  pollCommand
+    .addStringOption(o =>
+      o.setName(`option${i}`)
+        .setDescription(`Option ${i}`)
+        .setRequired(i <= 2) // require at least 2 options
+    )
+    .addStringOption(o =>
+      o.setName(`emoji${i}`)
+        .setDescription(`Emoji for option ${i}`)
+        .setRequired(i <= 2)
+    );
+}
+
+const reregisterCommand = new SlashCommandBuilder()
+  .setName("reregister")
+  .setDescription("Re-register slash commands (admin only)");
+  .setDescription("Re-register slash commands");
+
+const commands = [
+  pollCommand.toJSON(),
+@@ -74,17 +79,29 @@
+/* -------------------- INTERACTIONS -------------------- */
+
+client.on(Events.InteractionCreate, async interaction => {
+
+  /* ---------- /poll ---------- */
+  if (interaction.isChatInputCommand() && interaction.commandName === "poll") {
+    const question = interaction.options.getString("question");
+    const options = interaction.options.getString("options").split("|").map(o => o.trim());
+    const emojis = interaction.options.getString("emojis").split("|").map(e => e.trim());
+
+    if (options.length > 5)
+      return interaction.reply({ content: "❌ Max 5 options.", ephemeral: true });
+    const options = [];
+    const emojis = [];
+
+    if (options.length !== emojis.length)
+      return interaction.reply({ content: "❌ Options and emojis must match.", ephemeral: true });
+    for (let i = 1; i <= 5; i++) {
+      const opt = interaction.options.getString(`option${i}`);
+      const emo = interaction.options.getString(`emoji${i}`);
+
+      if (opt && emo) {
+        options.push(opt);
+        emojis.push(emo);
+      }
+    }
+
+    if (options.length < 2)
+      return interaction.reply({
+        content: "❌ You need at least 2 options.",
+        ephemeral: true
+      });
+
+    const description = options
+      .map((opt, i) => `## ${emojis[i]} ${opt}`)
+@@ -123,11 +140,16 @@
+  /* ---------- BUTTONS ---------- */
+  if (interaction.isButton()) {
+    const data = interaction.client.pollCache?.get(interaction.user.id);
+    if (!data) return interaction.reply({ content: "❌ Poll data expired.", ephemeral: true });
+    if (!data)
+      return interaction.reply({ content: "❌ Poll expired.", ephemeral: true });
+
+    if (interaction.customId === "poll_cancel") {
+      interaction.client.pollCache.delete(interaction.user.id);
+      return interaction.update({ content: "❌ Poll cancelled.", embeds: [], components: [] });
+      return interaction.update({
+        content: "❌ Poll cancelled.",
+        embeds: [],
+        components: []
+      });
+    }
+
+    if (interaction.customId === "poll_confirm") {
+@@ -138,14 +160,21 @@
+      }
+
+      interaction.client.pollCache.delete(interaction.user.id);
+      await interaction.update({ content: "✅ Poll posted!", embeds: [], components: [] });
+      await interaction.update({
+        content: "✅ Poll posted!",
+        embeds: [],
+        components: []
+      });
+    }
+  }
+
+  /* ---------- /reregister ---------- */
+  if (interaction.isChatInputCommand() && interaction.commandName === "reregister") {
+    await registerSlashCommands();
+    await interaction.reply({ content: "✅ Commands re-registered.", ephemeral: true });
+    await interaction.reply({
+      content: "✅ Commands re-registered.",
+      ephemeral: true
+    });
+  }
+});
+
     /* ---------- BOTPOST ---------- */
     if (interaction.isChatInputCommand() && interaction.commandName === 'botpost') {
       let description = o.getString('description');
