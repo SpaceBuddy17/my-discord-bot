@@ -139,13 +139,13 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 })();
 
 /* ================= INTERACTIONS ================= */
-
 client.on('interactionCreate', async interaction => {
   try {
     if (!interaction.member) return;
 
     const o = interaction.options;
 
+    // Admin check (skip ping/testyoutube)
     if (
       interaction.isChatInputCommand() &&
       !['ping', 'testyoutube'].includes(interaction.commandName) &&
@@ -154,85 +154,137 @@ client.on('interactionCreate', async interaction => {
       return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
 
-/* ---------- POLL ---------- */
-if (interaction.isChatInputCommand() && interaction.commandName === 'poll') {
+    /* ---------- BOTPOST ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'botpost') {
+      await interaction.deferReply({ ephemeral: true });
 
-  const question = o.getString('question');
-  const options = [];
-  const emojis = [];
+      const title = o.getString('title');
+      const description = o.getString('description');
+      const description2 = o.getString('description2');
+      const link = o.getString('link');
+      const pingRole = o.getRole('ping');
 
-  for (let i = 1; i <= 5; i++) {
-    const opt = o.getString(`option${i}`);
-    const emo = o.getString(`emoji${i}`);
-    if (opt && emo) {
-      options.push(opt.toUpperCase());
-      emojis.push(emo);
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(title)
+        .setDescription(description2 ? `${description}\n\n${description2}` : description)
+        .setTimestamp();
+
+      if (link) embed.setURL(link);
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('confirm_botpost')
+          .setLabel('Confirm')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('cancel_botpost')
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      await interaction.editReply({
+        content: '📋 Preview your botpost below:',
+        embeds: [embed],
+        components: [row]
+      });
+
+      const filter = i => i.user.id === interaction.user.id;
+      const collector = interaction.channel.createMessageComponentCollector({
+        filter,
+        time: 120000,
+        max: 1
+      });
+
+      collector.on('collect', async i => {
+        if (i.customId === 'confirm_botpost') {
+          await interaction.channel.send({ embeds: [embed] });
+          if (pingRole) {
+            await interaction.channel.send({ content: `<@&${pingRole.id}>` });
+          }
+          await i.update({ content: '✅ Botpost sent!', embeds: [], components: [] });
+        } else {
+          await i.update({ content: '❌ Botpost cancelled.', embeds: [], components: [] });
+        }
+      });
     }
-  }
 
-  if (options.length < 2) {
-    return interaction.reply({ content: '❌ At least 2 options required.', ephemeral: true });
-  }
+    /* ---------- POLL ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'poll') {
+      const question = o.getString('question');
+      const options = [];
+      const emojis = [];
 
-  // Build embed
-  const embed = new EmbedBuilder()
-    .setColor(0x5865F2)
-    .setTitle(`📊  ${question.toUpperCase()}`)
-    .setFooter({ text: 'You may vote for multiple options.' });
-
-  options.forEach((opt, i) => {
-    embed.addFields({
-      name: '\u200B',
-      value: `\n${emojis[i]}   **${opt}**\n`,
-      inline: false
-    });
-  });
-
-  // Buttons
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('confirm_poll')
-      .setLabel('Post Poll')
-      .setStyle(ButtonStyle.Success),
-
-    new ButtonBuilder()
-      .setCustomId('cancel_poll')
-      .setLabel('Cancel')
-      .setStyle(ButtonStyle.Danger)
-  );
-
-  // Send preview
-  await interaction.reply({
-    content: 'Preview your poll below:',
-    embeds: [embed],
-    components: [row],
-    ephemeral: true
-  });
-
-  // Wait for confirmation
-  const filter = i => i.user.id === interaction.user.id;
-  const collector = interaction.channel.createMessageComponentCollector({
-    filter,
-    time: 60000,
-    max: 1
-  });
-
-  collector.on('collect', async i => {
-    if (i.customId === 'confirm_poll') {
-
-      const pollMessage = await interaction.channel.send({ embeds: [embed] });
-
-      for (let e of emojis) {
-        await pollMessage.react(e);
+      for (let i = 1; i <= 5; i++) {
+        const opt = o.getString(`option${i}`);
+        const emo = o.getString(`emoji${i}`);
+        if (opt && emo) {
+          options.push(opt.toUpperCase());
+          emojis.push(emo);
+        }
       }
 
-      await i.update({ content: '✅ Poll posted!', embeds: [], components: [] });
+      if (options.length < 2) {
+        return interaction.reply({ content: '❌ At least 2 options required.', ephemeral: true });
+      }
 
-    } else {
-      await i.update({ content: '❌ Poll cancelled.', embeds: [], components: [] });
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(`📊 ${question.toUpperCase()}`)
+        .setFooter({ text: 'You may vote for multiple options.' });
+
+      options.forEach((opt, i) => {
+        embed.addFields({
+          name: '\u200B',
+          value: `\n${emojis[i]}   **${opt}**\n`,
+          inline: false
+        });
+      });
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('confirm_poll')
+          .setLabel('Post Poll')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('cancel_poll')
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      await interaction.reply({
+        content: 'Preview your poll below:',
+        embeds: [embed],
+        components: [row],
+        ephemeral: true
+      });
+
+      const filter = i => i.user.id === interaction.user.id;
+      const collector = interaction.channel.createMessageComponentCollector({
+        filter,
+        time: 120000,
+        max: 1
+      });
+
+      collector.on('collect', async i => {
+        if (i.customId === 'confirm_poll') {
+          const pollMessage = await interaction.channel.send({ embeds: [embed] });
+          for (let e of emojis) await pollMessage.react(e);
+          await i.update({ content: '✅ Poll posted!', embeds: [], components: [] });
+        } else {
+          await i.update({ content: '❌ Poll cancelled.', embeds: [], components: [] });
+        }
+      });
     }
-  });
-}
+
+    /* ---------- ANONLOOKUP ---------- */
+    if (interaction.isChatInputCommand() && interaction.commandName === 'anonlookup') {
+      const msgId = o.getString('message_id');
+      const record = Array.from(anonMessages.entries()).find(([id, msg]) => msg.messageId === msgId);
+      if (!record) return await interaction.reply({ content: '❌ Could not find sender.', ephemeral: true });
+      const [anonId, msg] = record;
+      return await interaction.reply({ content: `🕵️ Sender: <@${msg.userId}> • ID: ${anonId}`, ephemeral: true });
+    }
 
     /* ---------- REREGISTER ---------- */
     if (interaction.isChatInputCommand() && interaction.commandName === 'reregister') {
@@ -269,6 +321,7 @@ if (interaction.isChatInputCommand() && interaction.commandName === 'poll') {
     if (!interaction.replied) await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true });
   }
 });
+
 
 /* ================= REST OF YOUR FILE REMAINS 100% UNCHANGED ================= */
 
