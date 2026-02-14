@@ -90,8 +90,8 @@ const commands = [
     .addStringOption(o => o.setName('description2').setDescription('Secondary description').setRequired(false))
     .addStringOption(o => o.setName('link').setDescription('Optional website link').setRequired(false))
     .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false))
-    .addStringOption(o => o.setName('image').setDescription('URL for main embed image (optional)').setRequired(false))
-    .addStringOption(o => o.setName('thumbnail').setDescription('URL for embed thumbnail (optional)').setRequired(false)),
+    .addAttachmentOption(o => o.setName('image').setDescription('Upload main image (optional)').setRequired(false))
+    .addAttachmentOption(o => o.setName('thumbnail').setDescription('Upload thumbnail (optional)').setRequired(false)),
 
   new SlashCommandBuilder()
     .setName('poll')
@@ -165,8 +165,10 @@ client.on('interactionCreate', async interaction => {
       const description2 = o.getString('description2');
       const link = o.getString('link');
       const pingRole = o.getRole('ping');
-      const imageURL = o.getString('image');        // Main large image
-      const thumbnailURL = o.getString('thumbnail'); // Small top-right image
+
+      // Get attachments from command
+      const imageAttachment = o.getAttachment('image');
+      const thumbnailAttachment = o.getAttachment('thumbnail');
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
@@ -175,8 +177,8 @@ client.on('interactionCreate', async interaction => {
         .setTimestamp();
 
       if (link) embed.setURL(link);
-      if (imageURL) embed.setImage(imageURL);
-      if (thumbnailURL) embed.setThumbnail(thumbnailURL);
+      if (imageAttachment) embed.setImage(imageAttachment.url);
+      if (thumbnailAttachment) embed.setThumbnail(thumbnailAttachment.url);
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
