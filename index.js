@@ -154,43 +154,50 @@ client.on('interactionCreate', async interaction => {
       return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
 
-    /* ---------- POLL ---------- */
-    if (interaction.isChatInputCommand() && interaction.commandName === 'poll') {
+   /* ---------- POLL ---------- */
+if (interaction.isChatInputCommand() && interaction.commandName === 'poll') {
 
-      const question = o.getString('question');
-      const options = [];
-      const emojis = [];
+  const question = o.getString('question');
+  const options = [];
+  const emojis = [];
 
-      for (let i = 1; i <= 5; i++) {
-        const opt = o.getString(`option${i}`);
-        const emo = o.getString(`emoji${i}`);
-        if (opt && emo) {
-          options.push(opt);
-          emojis.push(emo);
-        }
-      }
-
-      if (options.length < 2) {
-        return interaction.reply({ content: '❌ At least 2 options required.', ephemeral: true });
-      }
-
-      const description = options.map((opt, i) => `${emojis[i]} ${opt}`).join('\n\n');
-
-      const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle(`📊 ${question}`)
-        .setDescription(description)
-        .setFooter({ text: `Poll by ${interaction.user.tag}` })
-        .setTimestamp();
-
-      const pollMessage = await interaction.channel.send({ embeds: [embed] });
-
-      for (let i = 0; i < emojis.length; i++) {
-        await pollMessage.react(emojis[i]);
-      }
-
-      return interaction.reply({ content: '✅ Poll created!', ephemeral: true });
+  for (let i = 1; i <= 5; i++) {
+    const opt = o.getString(`option${i}`);
+    const emo = o.getString(`emoji${i}`);
+    if (opt && emo) {
+      options.push(opt);
+      emojis.push(emo);
     }
+  }
+
+  if (options.length < 2) {
+    return interaction.reply({ content: '❌ At least 2 options required.', ephemeral: true });
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle(`📊 ${question}`)
+    .setFooter({ text: `Poll by ${interaction.user.tag}` })
+    .setTimestamp();
+
+  // Add each option as its own field (larger visual appearance)
+  options.forEach((opt, i) => {
+    embed.addFields({
+      name: `${emojis[i]} Option ${i + 1}`,
+      value: `**${opt}**`,
+      inline: false
+    });
+  });
+
+  const pollMessage = await interaction.channel.send({ embeds: [embed] });
+
+  for (let i = 0; i < emojis.length; i++) {
+    await pollMessage.react(emojis[i]);
+  }
+
+  return interaction.reply({ content: '✅ Poll created!', ephemeral: true });
+}
+
 
     /* ---------- REREGISTER ---------- */
     if (interaction.isChatInputCommand() && interaction.commandName === 'reregister') {
