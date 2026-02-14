@@ -89,7 +89,9 @@ const commands = [
     .addStringOption(o => o.setName('description').setDescription('Primary description').setRequired(true))
     .addStringOption(o => o.setName('description2').setDescription('Secondary description').setRequired(false))
     .addStringOption(o => o.setName('link').setDescription('Optional website link').setRequired(false))
-    .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false)),
+    .addRoleOption(o => o.setName('ping').setDescription('Optional role to ping').setRequired(false))
+    .addStringOption(o => o.setName('image').setDescription('URL for main embed image (optional)').setRequired(false))
+    .addStringOption(o => o.setName('thumbnail').setDescription('URL for embed thumbnail (optional)').setRequired(false)),
 
   new SlashCommandBuilder()
     .setName('poll')
@@ -163,6 +165,8 @@ client.on('interactionCreate', async interaction => {
       const description2 = o.getString('description2');
       const link = o.getString('link');
       const pingRole = o.getRole('ping');
+      const imageURL = o.getString('image');        // Main large image
+      const thumbnailURL = o.getString('thumbnail'); // Small top-right image
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
@@ -171,6 +175,8 @@ client.on('interactionCreate', async interaction => {
         .setTimestamp();
 
       if (link) embed.setURL(link);
+      if (imageURL) embed.setImage(imageURL);
+      if (thumbnailURL) embed.setThumbnail(thumbnailURL);
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
