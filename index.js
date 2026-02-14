@@ -154,7 +154,7 @@ client.on('interactionCreate', async interaction => {
       return await interaction.reply({ content: '❌ No permission.', ephemeral: true });
     }
 
-   /* ---------- POLL ---------- */
+  /* ---------- POLL ---------- */
 if (interaction.isChatInputCommand() && interaction.commandName === 'poll') {
 
   const question = o.getString('question');
@@ -177,14 +177,13 @@ if (interaction.isChatInputCommand() && interaction.commandName === 'poll') {
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle(`📊 ${question}`)
-    .setFooter({ text: `Poll by ${interaction.user.tag}` })
-    .setTimestamp();
+    .setFooter({ text: 'You may vote for multiple options.' });
 
-  // Add each option as its own field (larger visual appearance)
+  // Each option as its own field
   options.forEach((opt, i) => {
     embed.addFields({
-      name: `${emojis[i]} Option ${i + 1}`,
-      value: `**${opt}**`,
+      name: '\u200B',
+      value: `${emojis[i]}  **${opt}**`,
       inline: false
     });
   });
@@ -197,6 +196,7 @@ if (interaction.isChatInputCommand() && interaction.commandName === 'poll') {
 
   return interaction.reply({ content: '✅ Poll created!', ephemeral: true });
 }
+
 
 
     /* ---------- REREGISTER ---------- */
